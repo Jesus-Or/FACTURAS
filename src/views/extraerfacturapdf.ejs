@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Extraer Factura PDF</title>
+</head>
+<body>
+  <h1>Sube tu Factura en PDF</h1>
+  <form action="/extraerfacturapdf" method="post" enctype="multipart/form-data">
+    <input type="file" name="factura" accept="application/pdf" required>
+    <button type="submit">Subir Factura</button>
+  </form>
+
+  <!-- <% if (factura) { %>
+    <h2>Datos Extraídos:</h2>
+    <ul>
+      <li><strong>Número:</strong> <%= factura.numeroFactura %></li>
+      <li><strong>Fecha Emisión:</strong> <%= factura.fechaEmision %></li>
+      <li><strong>Fecha Vencimiento:</strong> <%= factura.fechaVencimiento %></li>
+      <li><strong>Cliente:</strong> <%= factura.cliente %></li>
+      <li><strong>Monto Total:</strong> <%= factura.montoTotal %></li>
+    </ul>
+  <% } %> -->
+</body>
+</html>
