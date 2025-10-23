@@ -4,6 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Extraer Factura PDF</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.8/dist/css/bootstrap.min.css">
 </head>
 <body>
   <h1>Sube tu Factura en PDF</h1>
@@ -11,16 +12,38 @@
     <input type="file" name="factura" accept="application/pdf" required>
     <button type="submit">Subir Factura</button>
   </form>
-
-  <!-- <% if (factura) { %>
-    <h2>Datos Extraídos:</h2>
-    <ul>
-      <li><strong>Número:</strong> <%= factura.numeroFactura %></li>
-      <li><strong>Fecha Emisión:</strong> <%= factura.fechaEmision %></li>
-      <li><strong>Fecha Vencimiento:</strong> <%= factura.fechaVencimiento %></li>
-      <li><strong>Cliente:</strong> <%= factura.cliente %></li>
-      <li><strong>Monto Total:</strong> <%= factura.montoTotal %></li>
-    </ul>
-  <% } %> -->
+  <table class="table table-striped table-bordered table-hover align-middle">
+    <thead class="table-primary">
+      <tr>
+        <th>Id</th>
+        <th>Número de Factura</th>
+        <th>Fecha Emisión</th>
+        <th>Fecha Vencimiento</th>
+        <th>Cliente/Descripción</th>
+        <th>Monto Total</th>
+      </tr>
+    </thead>
+    <tbody>
+      <% if (facturas && facturas.length > 0) { %>
+        <% facturas.forEach(function(f) { %>
+          <tr>
+            <td><%= f.Id %></td>
+            <td><%= f.NumeroFactura %></td>
+            <td><%= f.FechaEmision ? new Date(f.FechaEmision).toISOString().split('T')[0] : '' %></td>
+            <td><%= f.FechaVencimiento ? new Date(f.FechaVencimiento).toISOString().split('T')[0] : '' %></td>
+            <td><%= f.Cliente %></td>
+            <td><%= f.MontoTotal %></td>
+          </tr>
+        <% }) %>
+      <% } else { %>
+        <tr>
+          <td colspan="6" class="text-center">No hay facturas registradas.</td>
+        </tr>
+      <% } %>
+    </tbody>
+  </table>
+  
+ 
+ 
 </body>
 </html>
