@@ -48,23 +48,24 @@ function limpiarNumero(valor) {
 app.get('/', (req, res) => {
   res.render('index');
 });
-
-// app.get('/dashboard', (req, res) => {
-//   res.render('dashboard');
-// });
 app.get('/dashboard', async (req, res) => {
-  const poolInstance = await getPool();
-  const resultado = await poolInstance.request().query(`
-    SELECT
-      FORMAT(FechaEmision, 'yyyy-MM') AS Mes,
-      SUM(MontoTotal) AS TotalMes
-    FROM Facturas
-    GROUP BY FORMAT(FechaEmision, 'yyyy-MM')
-    ORDER BY Mes ASC
-  `);
-
-  res.render('dashboard', { datos: resultado.recordset });
+  try {
+    const pool = await sql.connect(dbconfig);
+    const result = await pool.request().query(`
+      SELECT 
+          FORMAT(FechaEmision, 'yyyy-MM') AS Mes,
+          SUM(MontoTotal) AS TotalMes
+      FROM Facturas
+      GROUP BY FORMAT(FechaEmision, 'yyyy-MM')
+      ORDER BY Mes;
+    `);
+    res.render('dashboard', { datos: result.recordset });
+  } catch (err) {
+    console.error('Error al generar dashboard:', err);
+    res.status(500).send('Error al generar el dashboard');
+  }
 });
+
 
 
 app.get('/extraerfacturapdf', async (req, res) => {
