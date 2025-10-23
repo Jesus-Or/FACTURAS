@@ -49,9 +49,23 @@ app.get('/', (req, res) => {
   res.render('index');
 });
 
-app.get('/dasboard', (req, res) => {
-  res.render('dashboard');
+// app.get('/dashboard', (req, res) => {
+//   res.render('dashboard');
+// });
+app.get('/dashboard', async (req, res) => {
+  const poolInstance = await getPool();
+  const resultado = await poolInstance.request().query(`
+    SELECT
+      FORMAT(FechaEmision, 'yyyy-MM') AS Mes,
+      SUM(MontoTotal) AS TotalMes
+    FROM Facturas
+    GROUP BY FORMAT(FechaEmision, 'yyyy-MM')
+    ORDER BY Mes ASC
+  `);
+
+  res.render('dashboard', { datos: resultado.recordset });
 });
+
 
 app.get('/extraerfacturapdf', async (req, res) => {
   try {
@@ -152,7 +166,7 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
 
     res.redirect('/extraerfacturapdf');
   } catch (error) {
-    console.error('❌ Error al procesar la factura:', error);
+    console.error('Error al procesar la factura:', error);
     res.status(500).send('Error al procesar la factura: ' + error.message + '<br>' + error.stack);
   }
 });
