@@ -19,14 +19,13 @@ let pool;
 async function iniciarServidor() {
   try {
     pool = await sql.connect(dbconfig);
-    console.log('✅ Base de datos conectada correctamente');
-
+    console.log('Base de datos conectada correctamente');
     const PORT = 3000;
     app.listen(PORT, () => {
       console.log(`Servidor corriendo en http://localhost:${PORT}`);
     });
   } catch (err) {
-    console.error('❌ Error al conectar la base de datos:', err);
+    console.error('Error al conectar la base de datos:', err);
   }
 }
 
@@ -37,14 +36,32 @@ async function getPool() {
   return pool;
 }
 
-// Página principal
+function limpiarNumero(valor) {
+  if (typeof valor === 'string') {
+    valor = valor.replace(/\s/g, '');
+    valor = valor.replace(/\./g, '');
+    valor = valor.replace(',', '.');
+  }
+  return parseFloat(valor) || 0;
+}
+
 app.get('/', (req, res) => {
-  res.render('index', { factura: null });
+  res.render('index');
 });
 
-// Formulario para subir factura
-app.get('/extraerfacturapdf', (req, res) => {
-  res.render('extraerfacturapdf', { factura: null });
+app.get('/dasboard', (req, res) => {
+  res.render('dashboard');
+});
+
+app.get('/extraerfacturapdf', async (req, res) => {
+  try {
+    const poolInstance = await getPool();
+    const result = await poolInstance.request().query('SELECT * FROM Facturas');
+    res.render('extraerfacturapdf', { facturas: result.recordset });
+  } catch (err) {
+    console.error('Error al cargar las facturas:', err);
+    res.render('extraerfacturapdf', { facturas: [] });
+  }
 });
 
 app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
@@ -53,19 +70,23 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
     console.log('Archivo recibido:', req.file.originalname);
 
     const dataBuffer = fs.readFileSync(req.file.path);
-    console.log('Tamaño del buffer:', dataBuffer.length);
-
     const data = await pdfParse(dataBuffer);
+
+    // Para depuración: imprimir todo el texto extraído del PDF
+    console.log('===== CONTENIDO PDF COMPLETO =====');
+    console.log(data.text);
+    console.log('===== FIN CONTENIDO PDF COMPLETO =====');
+
     const texto = data.text;
 
-    // Muestra el texto para debug
-    console.log('=== CONTENIDO TEXTO PDF ===\n', texto, '\n=== FIN CONTENIDO PDF ===');
-
-    // Number
+    // --- Extracción de campos clave ---
     const numeroFactura = texto.match(/Number(\d+)/)?.[1] || 'No encontrado';
-
-    // Date
     const fechaEmisionRaw = texto.match(/Date(\d{4}\/\d{2}\/\d{2})/)?.[1] || null;
+    const fechaVencimientoRaw =
+      texto.match(/Due[\s]*date[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
+      || texto.match(/Vence[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
+      || null;
+
     function formatearFecha(fechaStr) {
       if (!fechaStr) return null;
       const partes = fechaStr.split('/');
@@ -75,84 +96,65 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       if (isNaN(Date.parse(fechaISO))) return null;
       return fechaISO;
     }
-    const fechaEmision = formatearFecha(fechaEmisionRaw);
 
-    // Fecha de vencimiento
-    let fechaVencimientoRaw =
-      texto.match(/Due[\s]*date[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
-      || texto.match(/Vence[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
-      || null;
+    const fechaEmision = formatearFecha(fechaEmisionRaw);
     const fechaVencimiento = formatearFecha(fechaVencimientoRaw);
 
-    // Cliente (después del bloque DescriptionQuantityUnit priceAmount)
+    // ==== Cliente: todo el bloque siguiente al marcador ====
     let cliente = 'No encontrado';
-    const cliMatch = texto.match(/DescriptionQuantityUnit priceAmount\s*\n([^\n]+)(?:\n([^\n]+))?/);
-    if (cliMatch) {
-      cliente = cliMatch[1].trim();
-      if (cliMatch[2]) {
-        const segundaLinea = cliMatch[2].trim();
-        if (/^[A-ZÁÉÍÓÚÑ]/.test(segundaLinea)) {
-          cliente += ' ' + segundaLinea;
+    const marker = 'DescriptionQuantityUnit priceAmount';
+    const inicioDetalles = texto.indexOf(marker);
+
+    if (inicioDetalles !== -1) {
+      // Toma todo desde el marcador hasta el final del texto PDF
+      cliente = texto.substring(inicioDetalles).trim();
+    } else {
+      // Si no encuentra el bloque, usa la lógica antigua
+      const cliMatch = texto.match(/DescriptionQuantityUnit priceAmount\s*\n([^\n]+)(?:\n([^\n]+))?/);
+      if (cliMatch) {
+        cliente = cliMatch[1].trim();
+        if (cliMatch[2]) {
+          const segundaLinea = cliMatch[2].trim();
+          if (/^[A-ZÁÉÍÓÚÑ]/.test(segundaLinea)) {
+            cliente += ' ' + segundaLinea;
+          }
         }
       }
     }
 
-    // Description (línea después de 'Description')
-    let descripcion = 'No encontrada';
-    const descMatch = texto.match(/Description\s*\n([^\n]+)/);
-    if (descMatch) {
-      descripcion = descMatch[1].trim();
+    // --- Monto total ---
+    let montoTotal = '0.00';
+    const lineaCOP = texto.split('\n').find(l => l.includes('COP'));
+    if (lineaCOP) {
+      const montos = Array.from(lineaCOP.matchAll(/(\d[\d\s.]*\d,\d{2})/g)).map(m =>
+        limpiarNumero(m[1])
+      );
+      if (montos.length) montoTotal = Math.max(...montos).toFixed(2);
     }
 
-    // === MONTO TOTAL: SIEMPRE EL NÚMERO COMPLETO ANTES DEL ÚLTIMO "COP" ===
-    // === BLOQUE QUE TOMA EL MONTO MAYOR EN LA LÍNEA QUE CONTIENE "COP" ===
-let montoTotal = '0.00';
-const lineaCOP = texto.split('\n').find(l => l.includes('COP'));
-if (lineaCOP) {
-  // Extrae todos los montos decimales
-  const montos = Array.from(lineaCOP.matchAll(/(\d[\d\s.]*\d,\d{2})/g)).map(m => parseFloat(m[1].replace(/\s/g, '').replace(',', '.')));
-  if (montos.length) {
-    // Toma el MAYOR (el total de la factura casi siempre es el monto más grande)
-    montoTotal = Math.max(...montos).toFixed(2);
-  }
-}
-
-
-    // Muestra los datos para depuración
-    console.log('Datos extraídos:', {
-      numeroFactura, fechaEmision, fechaVencimiento, cliente, descripcion, montoTotal
+    // Debug información a insertar
+    console.log('Datos para insert:', {
+      numeroFactura, fechaEmision, fechaVencimiento, cliente, montoTotal
     });
 
-    // Guardar en SQL Server
+    // --- Insertar en la base de datos ---
     const poolInstance = await getPool();
     await poolInstance.request()
       .input('NumeroFactura', sql.VarChar, numeroFactura)
       .input('FechaEmision', sql.Date, fechaEmision)
       .input('FechaVencimiento', sql.Date, fechaVencimiento)
       .input('Cliente', sql.VarChar, cliente)
-      .input('MontoTotal', sql.VarChar, montoTotal)
+      .input('MontoTotal', sql.Decimal(18,2), limpiarNumero(montoTotal))
       .query(`
-        INSERT INTO Facturas 
-        (NumeroFactura, FechaEmision, FechaVencimiento, Cliente, MontoTotal)
+        INSERT INTO Facturas (NumeroFactura, FechaEmision, FechaVencimiento, Cliente, MontoTotal)
         VALUES (@NumeroFactura, @FechaEmision, @FechaVencimiento, @Cliente, @MontoTotal)
       `);
 
-    res.render('extraerfacturapdf', {
-      factura: { numeroFactura, fechaEmision, fechaVencimiento, cliente, descripcion, montoTotal }
-    });
-
-  } catch (err) {
-    console.error('❌ Error al procesar el archivo PDF:', err);
-    res.status(500).send(`Error al procesar el archivo PDF: ${err.message}`);
+    res.redirect('/extraerfacturapdf');
+  } catch (error) {
+    console.error('❌ Error al procesar la factura:', error);
+    res.status(500).send('Error al procesar la factura: ' + error.message + '<br>' + error.stack);
   }
 });
-
-
-
-
-
-
-
-
 
 iniciarServidor();
