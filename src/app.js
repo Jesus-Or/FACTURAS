@@ -48,6 +48,7 @@ function limpiarNumero(valor) {
 app.get('/', (req, res) => {
   res.render('index');
 });
+
 app.get('/dashboard', async (req, res) => {
   try {
     const pool = await sql.connect(dbconfig);
@@ -65,8 +66,6 @@ app.get('/dashboard', async (req, res) => {
     res.status(500).send('Error al generar el dashboard');
   }
 });
-
-
 
 app.get('/extraerfacturapdf', async (req, res) => {
   try {
@@ -86,73 +85,112 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
 
     const dataBuffer = fs.readFileSync(req.file.path);
     const data = await pdfParse(dataBuffer);
-
-    // Para depuración: imprimir todo el texto extraído del PDF
-    console.log('===== CONTENIDO PDF COMPLETO =====');
-    console.log(data.text);
-    console.log('===== FIN CONTENIDO PDF COMPLETO =====');
-
     const texto = data.text;
 
-    // --- Extracción de campos clave ---
-    const numeroFactura = texto.match(/Number(\d+)/)?.[1] || 'No encontrado';
-    const fechaEmisionRaw = texto.match(/Date(\d{4}\/\d{2}\/\d{2})/)?.[1] || null;
-    const fechaVencimientoRaw =
-      texto.match(/Due[\s]*date[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
-      || texto.match(/Vence[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
-      || null;
+    console.log('===== CONTENIDO PDF COMPLETO =====');
+    console.log(texto);
+    console.log('===== FIN CONTENIDO PDF COMPLETO =====');
 
-    function formatearFecha(fechaStr) {
-      if (!fechaStr) return null;
-      const partes = fechaStr.split('/');
-      if (partes.length !== 3) return null;
-      const [anio, mes, dia] = partes;
-      const fechaISO = `${anio}-${mes}-${dia}`;
-      if (isNaN(Date.parse(fechaISO))) return null;
-      return fechaISO;
-    }
+    // Inicializar campos
+    let tipoPDF = 'DESCONOCIDO';
+    let cliente = 'No encontrado', numeroFactura = 'No encontrado', fechaEmision = null, fechaVencimiento = null, montoTotal = '0.00';
 
-    const fechaEmision = formatearFecha(fechaEmisionRaw);
-    const fechaVencimiento = formatearFecha(fechaVencimientoRaw);
+    if (texto.includes('DescriptionQuantityUnit priceAmount')) {
+      tipoPDF = 'FORMATO_CLASICO';
+      numeroFactura = texto.match(/Number(\d+)/)?.[1] || 'No encontrado';
+      const fechaEmisionRaw = texto.match(/Date(\d{4}\/\d{2}\/\d{2})/)?.[1] || null;
+      const fechaVencimientoRaw =
+        texto.match(/Due[\s]*date[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
+        || texto.match(/Vence[:\s]*([0-9]{4}[\/\-][0-9]{2}[\/\-][0-9]{2})/i)?.[1]
+        || null;
+      function formatearFecha(fechaStr) {
+        if (!fechaStr) return null;
+        const partes = fechaStr.split('/');
+        if (partes.length !== 3) return null;
+        const [anio, mes, dia] = partes;
+        const fechaISO = `${anio}-${mes}-${dia}`;
+        if (isNaN(Date.parse(fechaISO))) return null;
+        return fechaISO;
+      }
+      fechaEmision = formatearFecha(fechaEmisionRaw);
+      fechaVencimiento = formatearFecha(fechaVencimientoRaw);
 
-    // ==== Cliente: todo el bloque siguiente al marcador ====
-    let cliente = 'No encontrado';
-    const marker = 'DescriptionQuantityUnit priceAmount';
-    const inicioDetalles = texto.indexOf(marker);
-
-    if (inicioDetalles !== -1) {
-      // Toma todo desde el marcador hasta el final del texto PDF
-      cliente = texto.substring(inicioDetalles).trim();
-    } else {
-      // Si no encuentra el bloque, usa la lógica antigua
-      const cliMatch = texto.match(/DescriptionQuantityUnit priceAmount\s*\n([^\n]+)(?:\n([^\n]+))?/);
-      if (cliMatch) {
-        cliente = cliMatch[1].trim();
-        if (cliMatch[2]) {
-          const segundaLinea = cliMatch[2].trim();
-          if (/^[A-ZÁÉÍÓÚÑ]/.test(segundaLinea)) {
-            cliente += ' ' + segundaLinea;
+      // Usamos toda la descripción grande como Cliente
+      const marker = 'DescriptionQuantityUnit priceAmount';
+      const inicioDetalles = texto.indexOf(marker);
+      if (inicioDetalles !== -1) {
+        cliente = texto.substring(inicioDetalles).trim();
+      } else {
+        const cliMatch = texto.match(/DescriptionQuantityUnit priceAmount\s*\n([^\n]+)(?:\n([^\n]+))?/);
+        if (cliMatch) {
+          cliente = cliMatch[1].trim();
+          if (cliMatch[2]) {
+            const segundaLinea = cliMatch[2].trim();
+            if (/^[A-ZÁÉÍÓÚÑ]/.test(segundaLinea)) {
+              cliente += ' ' + segundaLinea;
+            }
           }
         }
       }
+
+      const lineaCOP = texto.split('\n').find(l => l.includes('COP'));
+      if (lineaCOP) {
+        const montos = Array.from(lineaCOP.matchAll(/(\d[\d\s.]*\d,\d{2})/g)).map(m =>
+          limpiarNumero(m[1])
+        );
+        if (montos.length) montoTotal = Math.max(...montos).toFixed(2);
+      }
+
+    } else if (texto.includes('Factura Electrónica') && texto.includes('NIT')) {
+      tipoPDF = 'FORMATO_ELECTRONICO_COLOMBIANO';
+      numeroFactura = texto.match(/Factura\s*N[°º]?\s*[:\-]?\s*(\d+)/i)?.[1] || 'No encontrado';
+      const fechaEmisionRaw = texto.match(/Fecha\s*[:\-]?\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i)?.[1] || null;
+      fechaEmision = fechaEmisionRaw;
+      fechaVencimiento = null;
+      const cliMatch = texto.match(/Cliente\s*:\s*(.*?)\s*NIT/i);
+      if (cliMatch) cliente = cliMatch[1].trim();
+
+      // Si hay descripción: úsala como cliente también
+      const descMatch = texto.match(/Descripción:\s*([\s\S]*?)Total:/i);
+      if (descMatch) cliente += "\n" + descMatch[1].trim();
+
+      let montoMatch = texto.match(/Total\s*:?[\s$]*([\d.,]+)/i);
+      if (montoMatch) montoTotal = limpiarNumero(montoMatch[1]);
+    } else if (texto.includes('INVOICE') && texto.includes('INVOICE NUMBER')) {
+      tipoPDF = 'INVOICE_INGLES';
+      numeroFactura = texto.match(/INVOICE NUMBER\s*([^\s]+)/i)?.[1] || 'No encontrado';
+      let fechaMatch = texto.match(/INVOICE DATE\s*([^\s]+)/i);
+      fechaEmision = fechaMatch ? fechaMatch[1].replace(/[^0-9\/]/g, '') : null;
+
+      let clienteMatch = texto.match(/ATTN:([\s\S]*?)INVOICE NUMBER/i);
+      cliente = clienteMatch ? clienteMatch[1].replace(/\n+/g, ' ').trim() : 'No encontrado';
+
+      let montoMatch = texto.match(/TOTALUSD[\s$]+([\d.,]+)/i) ||
+                       texto.match(/TOTAL[\s$]+([\d.,]+)/i);
+      montoTotal = montoMatch ? limpiarNumero(montoMatch[1]) : '0.00';
+
+      let descMatch = texto.match(/DESCRIPTION([\s\S]*)$/i);
+      if (descMatch) cliente += "\n" + descMatch[1].replace(/^(\s|\=)+/g, '').trim();
     }
 
-    // --- Monto total ---
-    let montoTotal = '0.00';
-    const lineaCOP = texto.split('\n').find(l => l.includes('COP'));
-    if (lineaCOP) {
-      const montos = Array.from(lineaCOP.matchAll(/(\d[\d\s.]*\d,\d{2})/g)).map(m =>
-        limpiarNumero(m[1])
-      );
-      if (montos.length) montoTotal = Math.max(...montos).toFixed(2);
+    if (tipoPDF === 'DESCONOCIDO') {
+      cliente = texto.slice(0, 500); // Guarda muestra para depuración
+      numeroFactura = 'No encontrado';
+      fechaEmision = null;
+      montoTotal = '0.00';
     }
 
-    // Debug información a insertar
-    console.log('Datos para insert:', {
-      numeroFactura, fechaEmision, fechaVencimiento, cliente, montoTotal
+    // Mostrar datos por consola para debug siempre
+    console.log({
+      tipoPDF,
+      numeroFactura,
+      fechaEmision,
+      fechaVencimiento,
+      cliente,
+      montoTotal
     });
 
-    // --- Insertar en la base de datos ---
+    // --- Insertar en la base de datos (solo Cliente, NO Descripcion) ---
     const poolInstance = await getPool();
     await poolInstance.request()
       .input('NumeroFactura', sql.VarChar, numeroFactura)
