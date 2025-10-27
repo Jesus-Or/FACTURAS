@@ -13,7 +13,8 @@ app.set('view engine', 'ejs');
 app.set('views', path.join(__dirname, 'views'));
 app.use(express.static('uploads'));
 app.use(express.urlencoded({ extended: true }));
-
+app.use(express.json());
+app.use(express.static('public'));
 let pool;
 
 async function iniciarServidor() {
@@ -54,13 +55,55 @@ app.get('/dashboard', async (req, res) => {
     const pool = await sql.connect(dbconfig);
     const result = await pool.request().query(`
       SELECT 
+          NumeroFactura,
+          Cliente,
           FORMAT(FechaEmision, 'yyyy-MM') AS Mes,
-          SUM(MontoTotal) AS TotalMes
+          MontoTotal
       FROM Facturas
-      GROUP BY FORMAT(FechaEmision, 'yyyy-MM')
-      ORDER BY Mes;
+      WHERE FechaEmision IS NOT NULL
+      ORDER BY Mes, NumeroFactura;
     `);
-    res.render('dashboard', { datos: result.recordset });
+
+    const facturas = result.recordset.map(f => ({
+      NumeroFactura: f.NumeroFactura,
+      Cliente: f.Cliente,
+      Mes: f.Mes,
+      MontoTotal: parseFloat(f.MontoTotal)
+    }));
+
+    // Agrupar por mes para calcular total mensual
+    const totalesPorMes = {};
+    facturas.forEach(f => {
+      if (!totalesPorMes[f.Mes]) totalesPorMes[f.Mes] = 0;
+      totalesPorMes[f.Mes] += f.MontoTotal;
+    });
+
+    // Crear arreglo ordenado de meses
+    const mesesOrdenados = Object.keys(totalesPorMes).sort();
+
+    // Asignar estado por comparación mes a mes
+    const estadosPorMes = {};
+    mesesOrdenados.forEach((mes, i) => {
+      if (i === 0) {
+        estadosPorMes[mes] = 'Activo';
+      } else {
+        const anterior = totalesPorMes[mesesOrdenados[i - 1]];
+        const actual = totalesPorMes[mes];
+        if (actual > anterior) estadosPorMes[mes] = 'Subió';
+        else if (actual < anterior) estadosPorMes[mes] = 'Bajó';
+        else estadosPorMes[mes] = 'Activo';
+      }
+    });
+    // Agregar el estado a cada factura según su mes
+    const datos = facturas.map(f => ({
+      NumeroFactura: f.NumeroFactura,
+      Cliente: f.Cliente,
+      Mes: f.Mes,
+      TotalMes: totalesPorMes[f.Mes],
+      Estado: estadosPorMes[f.Mes]
+    }));
+
+    res.render('dashboard', { datos });
   } catch (err) {
     console.error('Error al generar dashboard:', err);
     res.status(500).send('Error al generar el dashboard');
@@ -96,6 +139,7 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
     let cliente = 'No encontrado', numeroFactura = 'No encontrado', fechaEmision = null, fechaVencimiento = null, montoTotal = '0.00';
 
     if (texto.includes('DescriptionQuantityUnit priceAmount')) {
+      // FORMATO_CLASICO
       tipoPDF = 'FORMATO_CLASICO';
       numeroFactura = texto.match(/Number(\d+)/)?.[1] || 'No encontrado';
       const fechaEmisionRaw = texto.match(/Date(\d{4}\/\d{2}\/\d{2})/)?.[1] || null;
@@ -115,21 +159,22 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       fechaEmision = formatearFecha(fechaEmisionRaw);
       fechaVencimiento = formatearFecha(fechaVencimientoRaw);
 
-      // Usamos toda la descripción grande como Cliente
       const marker = 'DescriptionQuantityUnit priceAmount';
       const inicioDetalles = texto.indexOf(marker);
+      const finTablaRegex = /(?:Amount|Valor total)/i;
+      let clienteBloque = '';
       if (inicioDetalles !== -1) {
-        cliente = texto.substring(inicioDetalles).trim();
+        const resto = texto.substring(inicioDetalles + marker.length);
+        const lineas = resto.split('\n');
+        for (let linea of lineas) {
+          if (finTablaRegex.test(linea)) break;
+          clienteBloque += linea.trim() + ' ';
+        }
+        cliente = clienteBloque.trim();
       } else {
-        const cliMatch = texto.match(/DescriptionQuantityUnit priceAmount\s*\n([^\n]+)(?:\n([^\n]+))?/);
+        const cliMatch = texto.match(/DescriptionQuantityUnit priceAmount\s*\n([^\n]+\n[^\n]+\n[^\n]+)/);
         if (cliMatch) {
-          cliente = cliMatch[1].trim();
-          if (cliMatch[2]) {
-            const segundaLinea = cliMatch[2].trim();
-            if (/^[A-ZÁÉÍÓÚÑ]/.test(segundaLinea)) {
-              cliente += ' ' + segundaLinea;
-            }
-          }
+          cliente = cliMatch[1].replace(/\n+/g, ' ').trim();
         }
       }
 
@@ -142,6 +187,7 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       }
 
     } else if (texto.includes('Factura Electrónica') && texto.includes('NIT')) {
+      // FORMATO_ELECTRONICO_COLOMBIANO
       tipoPDF = 'FORMATO_ELECTRONICO_COLOMBIANO';
       numeroFactura = texto.match(/Factura\s*N[°º]?\s*[:\-]?\s*(\d+)/i)?.[1] || 'No encontrado';
       const fechaEmisionRaw = texto.match(/Fecha\s*[:\-]?\s*([0-9]{2}\/[0-9]{2}\/[0-9]{4})/i)?.[1] || null;
@@ -150,37 +196,42 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       const cliMatch = texto.match(/Cliente\s*:\s*(.*?)\s*NIT/i);
       if (cliMatch) cliente = cliMatch[1].trim();
 
-      // Si hay descripción: úsala como cliente también
       const descMatch = texto.match(/Descripción:\s*([\s\S]*?)Total:/i);
       if (descMatch) cliente += "\n" + descMatch[1].trim();
 
       let montoMatch = texto.match(/Total\s*:?[\s$]*([\d.,]+)/i);
       if (montoMatch) montoTotal = limpiarNumero(montoMatch[1]);
     } else if (texto.includes('INVOICE') && texto.includes('INVOICE NUMBER')) {
+      // INVOICE EN INGLÉS (DETALLES TRAS DATEAMOUNT)
       tipoPDF = 'INVOICE_INGLES';
       numeroFactura = texto.match(/INVOICE NUMBER\s*([^\s]+)/i)?.[1] || 'No encontrado';
       let fechaMatch = texto.match(/INVOICE DATE\s*([^\s]+)/i);
       fechaEmision = fechaMatch ? fechaMatch[1].replace(/[^0-9\/]/g, '') : null;
 
-      let clienteMatch = texto.match(/ATTN:([\s\S]*?)INVOICE NUMBER/i);
-      cliente = clienteMatch ? clienteMatch[1].replace(/\n+/g, ' ').trim() : 'No encontrado';
+      // Bloque de detalles tras DATEAMOUNT
+      const inicio = texto.indexOf('DATEAMOUNT');
+      let fin = texto.indexOf('If you have any questions');
+      if (fin === -1) fin = texto.length;
+
+      let detalles = 'No encontrado';
+      if (inicio !== -1 && fin > inicio) {
+        detalles = texto.substring(inicio + 'DATEAMOUNT'.length, fin).trim();
+      }
+
+      cliente = detalles.replace(/\n{2,}/g, '\n').replace(/\n/g, ' ').replace(/[ ]{2,}/g, ' ').trim();
 
       let montoMatch = texto.match(/TOTALUSD[\s$]+([\d.,]+)/i) ||
-                       texto.match(/TOTAL[\s$]+([\d.,]+)/i);
+        texto.match(/TOTAL[\s$]+([\d.,]+)/i);
       montoTotal = montoMatch ? limpiarNumero(montoMatch[1]) : '0.00';
-
-      let descMatch = texto.match(/DESCRIPTION([\s\S]*)$/i);
-      if (descMatch) cliente += "\n" + descMatch[1].replace(/^(\s|\=)+/g, '').trim();
     }
 
     if (tipoPDF === 'DESCONOCIDO') {
-      cliente = texto.slice(0, 500); // Guarda muestra para depuración
+      cliente = texto.slice(0, 500);
       numeroFactura = 'No encontrado';
       fechaEmision = null;
       montoTotal = '0.00';
     }
 
-    // Mostrar datos por consola para debug siempre
     console.log({
       tipoPDF,
       numeroFactura,
@@ -190,7 +241,6 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       montoTotal
     });
 
-    // --- Insertar en la base de datos (solo Cliente, NO Descripcion) ---
     const poolInstance = await getPool();
     await poolInstance.request()
       .input('NumeroFactura', sql.VarChar, numeroFactura)
