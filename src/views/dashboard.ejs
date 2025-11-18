@@ -1,57 +1,345 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <title>Dashboard Mes a Mes</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Servicios por Mes</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1600px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .back-button {
+            display: inline-block;
+            background: white;
+            color: #667eea;
+            padding: 12px 30px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: bold;
+            margin-bottom: 20px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .back-button:hover {
+            background: #667eea;
+            color: white;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(0,0,0,0.2);
+        }
+
+        .month-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .month-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+
+        .month-title {
+            font-size: 2em;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .month-total {
+            text-align: right;
+        }
+
+        .month-total-label {
+            font-size: 0.9em;
+            color: #666;
+        }
+
+        .month-total-value {
+            font-size: 1.8em;
+            color: #667eea;
+            font-weight: bold;
+        }
+
+        .services-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        .services-table thead {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+        }
+
+        .services-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 1.1em;
+        }
+
+        .services-table td {
+            padding: 15px;
+            border-bottom: 1px solid #e0e0e0;
+        }
+
+        .services-table tbody tr {
+            transition: background-color 0.2s ease;
+        }
+
+        .services-table tbody tr:hover {
+            background-color: #f5f5f5;
+        }
+
+        .service-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 1.05em;
+        }
+
+        .quantity {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #667eea;
+        }
+
+        .status-badge {
+            display: inline-block;
+            padding: 6px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            font-size: 0.9em;
+            text-align: center;
+        }
+
+        .status-badge.subió {
+            background: #28a745;
+            color: white;
+        }
+
+        .status-badge.bajó {
+            background: #dc3545;
+            color: white;
+        }
+
+        .status-badge.estable {
+            background: #ffc107;
+            color: #333;
+        }
+
+        .status-badge.nuevo {
+            background: #17a2b8;
+            color: white;
+        }
+
+        .difference {
+            font-size: 1.1em;
+            font-weight: 600;
+            text-align: center;
+        }
+
+        .difference.positive {
+            color: #28a745;
+        }
+
+        .difference.negative {
+            color: #dc3545;
+        }
+
+        .difference.neutral {
+            color: #666;
+        }
+
+        .comparison-cell {
+            text-align: center;
+        }
+
+        .comparison-detail {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 3px;
+        }
+
+        .arrow {
+            font-size: 1.2em;
+            margin-right: 5px;
+        }
+
+        .no-data {
+            text-align: center;
+            padding: 50px;
+            color: white;
+            font-size: 1.5em;
+        }
+
+        .facturas-list {
+            font-size: 0.85em;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        .factura-item {
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @media (max-width: 1200px) {
+            .services-table {
+                font-size: 0.9em;
+            }
+
+            .services-table th,
+            .services-table td {
+                padding: 10px;
+            }
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            .month-header {
+                flex-direction: column;
+                text-align: center;
+                gap: 10px;
+            }
+
+            .services-table {
+                font-size: 0.8em;
+            }
+
+            .services-table th,
+            .services-table td {
+                padding: 8px 5px;
+            }
+        }
+    </style>
 </head>
-<body class="bg-light">
-  <a href="/extraerfacturapdf" class="btn btn-outline-primary m-3">← Volver</a>
+<body>
+    <div class="container">
+        <a href="/" class="back-button">← Volver al Inicio</a>
+        
+        <h1>📊 Dashboard de Servicios por Mes</h1>
 
-  <div class="container mt-4">
-    <h2 class="text-center mb-4">📊 Estado Mes a Mes de Facturas</h2>
+        <% if (dashboardData.length === 0) { %>
+            <div class="no-data">
+                No hay datos disponibles. Por favor, sube facturas primero.
+            </div>
+        <% } else { %>
+            <% dashboardData.forEach(mes => { %>
+                <div class="month-section">
+                    <div class="month-header">
+                        <div class="month-title">
+                            <%= mes.mesNombre %> <%= mes.anio %>
+                        </div>
+                        <div class="month-total">
+                            <div class="month-total-label">Total Dispositivos:</div>
+                            <div class="month-total-value"><%= mes.totalDispositivos.toLocaleString() %></div>
+                        </div>
+                    </div>
 
-    <table class="table table-bordered text-center align-middle">
-      <thead class="table-dark">
-        <tr>
-          <th>No. Factura</th>
-          <th>Nombre del Proveedor</th>
-          <th>Mes</th>
-          <th>Total Mes</th>
-          <th>Estado</th>
-        </tr>
-      </thead>
-      <tbody>
-        <% datos.forEach(d => { 
-          const mapaClientes = {
-            "Global IT Services - CERT (Digital Security)": "GIT-CERT",
-            "Mark-up 5% - CERT (Digital Security)": "MU-CERT",
-            "Global Guarding Platform - TrackTik": "GGP-TrackTik",
-            "Global IT Services - Digital Identity": "GIT-DI",
-            "Mark-up Digital Identity": "MU-DI",
-            "Global IT Services - LMS": "GIT-LMS",
-            "Mark-up LMS": "MU-LMS",
-            "Global IT Services - Workplace from Meta": "GIT-WFM",
-            "Mark-up Workplace from Meta": "MU-WFM"
-          };
-
-          const clienteReducido = mapaClientes[d.Cliente] || d.Cliente;
-        %>
-          <tr>
-            <td><%= d.NumeroFactura %></td>
-            <td><%= clienteReducido %></td>
-            <td><%= d.Mes %></td>
-            <td>$<%= d.TotalMes.toLocaleString() %></td>
-            <td class="<%= 
-                d.Estado === 'Subió' ? 'text-success fw-bold' : 
-                d.Estado === 'Bajó' ? 'text-danger fw-bold' : 
-                'text-secondary fw-bold' %>">
-              <%= d.Estado %>
-            </td>
-          </tr>
-        <% }) %>
-      </tbody>
-    </table>
-  </div>
+                    <table class="services-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 40%;">Servicio</th>
+                                <th style="width: 15%; text-align: center;">Cantidad</th>
+                                <th style="width: 15%; text-align: center;">Mes Anterior</th>
+                                <th style="width: 15%; text-align: center;">Diferencia</th>
+                                <th style="width: 15%; text-align: center;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <% if (mes.servicios.length === 0) { %>
+                                <tr>
+                                    <td colspan="5" style="text-align: center; padding: 30px; color: #999;">
+                                        No se encontraron servicios en este mes
+                                    </td>
+                                </tr>
+                            <% } else { %>
+                                <% mes.servicios.forEach(servicio => { %>
+                                    <tr>
+                                        <td>
+                                            <div class="service-name"><%= servicio.nombre %></div>
+                                            <div class="facturas-list">
+                                                <% servicio.facturas.forEach(f => { %>
+                                                    <span class="factura-item">
+                                                        📄 #<%= f.numero %> (<%= f.cantidad %> disp.)
+                                                    </span>
+                                                <% }); %>
+                                            </div>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <span class="quantity"><%= servicio.cantidad.toLocaleString() %></span>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <% if (servicio.estado === 'Nuevo') { %>
+                                                <span style="color: #999;">-</span>
+                                            <% } else { %>
+                                                <span style="font-size: 1.1em; color: #666;">
+                                                    <%= servicio.cantidadAnterior.toLocaleString() %>
+                                                </span>
+                                            <% } %>
+                                        </td>
+                                        <td class="comparison-cell">
+                                            <% if (servicio.estado === 'Nuevo') { %>
+                                                <div class="difference neutral">Nuevo servicio</div>
+                                            <% } else if (servicio.diferencia > 0) { %>
+                                                <div class="difference positive">
+                                                    <span class="arrow">↑</span>+<%= servicio.diferencia.toLocaleString() %>
+                                                </div>
+                                            <% } else if (servicio.diferencia < 0) { %>
+                                                <div class="difference negative">
+                                                    <span class="arrow">↓</span><%= servicio.diferencia.toLocaleString() %>
+                                                </div>
+                                            <% } else { %>
+                                                <div class="difference neutral">
+                                                    <span class="arrow">→</span>Sin cambios
+                                                </div>
+                                            <% } %>
+                                        </td>
+                                        <td style="text-align: center;">
+                                            <span class="status-badge <%= servicio.estado.toLowerCase() %>">
+                                                <%= servicio.estado %>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <% }); %>
+                            <% } %>
+                        </tbody>
+                    </table>
+                </div>
+            <% }); %>
+        <% } %>
+    </div>
 </body>
 </html>

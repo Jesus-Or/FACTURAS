@@ -39,11 +39,34 @@ async function getPool() {
 
 function limpiarNumero(valor) {
   if (typeof valor === 'string') {
+    // Eliminar espacios
     valor = valor.replace(/\s/g, '');
-    valor = valor.replace(/\./g, '');
-    valor = valor.replace(',', '.');
+    // Eliminar símbolo de dólar si existe
+    valor = valor.replace(/\$/g, '');
+    // Eliminar USD, COP, EUR, etc.
+    valor = valor.replace(/USD|COP|EUR|MXN/gi, '');
+    
+    // Si tiene tanto punto como coma, es formato europeo (punto=miles, coma=decimal)
+    if (valor.includes('.') && valor.includes(',')) {
+      valor = valor.replace(/\./g, ''); // Eliminar puntos (miles)
+      valor = valor.replace(',', '.'); // Convertir coma a punto (decimal)
+    } else if (valor.includes(',') && !valor.includes('.')) {
+      // Solo tiene coma, es el decimal (formato europeo)
+      valor = valor.replace(',', '.');
+    } else if (valor.includes('.')) {
+      // Verificar si es formato americano (punto como decimal)
+      // Si hay solo un punto y menos de 4 dígitos después, es decimal
+      // Si hay múltiples puntos o más de 3 dígitos, el último punto es decimal
+      const partes = valor.split('.');
+      if (partes.length > 2) {
+        // Múltiples puntos: puntos son separadores de miles
+        valor = partes.slice(0, -1).join('') + '.' + partes[partes.length - 1];
+      }
+      // Si tiene un solo punto, ya está en formato correcto
+    }
   }
-  return parseFloat(valor) || 0;
+  const resultado = parseFloat(valor) || 0;
+  return resultado;
 }
 
 app.get('/', (req, res) => {
@@ -57,56 +80,139 @@ app.get('/dashboard', async (req, res) => {
       SELECT 
           NumeroFactura,
           Cliente,
-          FORMAT(FechaEmision, 'yyyy-MM') AS Mes,
+          FechaEmision,
+          YEAR(FechaEmision) AS Anio,
+          MONTH(FechaEmision) AS MesNumero,
+          DATENAME(MONTH, FechaEmision) AS MesNombre,
           MontoTotal
       FROM Facturas
       WHERE FechaEmision IS NOT NULL
-      ORDER BY Mes, NumeroFactura;
+      ORDER BY FechaEmision;
     `);
 
-    const facturas = result.recordset.map(f => ({
-      NumeroFactura: f.NumeroFactura,
-      Cliente: f.Cliente,
-      Mes: f.Mes,
-      MontoTotal: parseFloat(f.MontoTotal)
-    }));
+    const mesesEspanol = {
+      'January': 'Enero',
+      'February': 'Febrero',
+      'March': 'Marzo',
+      'April': 'Abril',
+      'May': 'Mayo',
+      'June': 'Junio',
+      'July': 'Julio',
+      'August': 'Agosto',
+      'September': 'Septiembre',
+      'October': 'Octubre',
+      'November': 'Noviembre',
+      'December': 'Diciembre'
+    };
 
-    // Agrupar por mes para calcular total mensual
-    const totalesPorMes = {};
-    facturas.forEach(f => {
-      if (!totalesPorMes[f.Mes]) totalesPorMes[f.Mes] = 0;
-      totalesPorMes[f.Mes] += f.MontoTotal;
-    });
-
-    // Crear arreglo ordenado de meses
-    const mesesOrdenados = Object.keys(totalesPorMes).sort();
-
-    // Asignar estado por comparación mes a mes
-    const estadosPorMes = {};
-    mesesOrdenados.forEach((mes, i) => {
-      if (i === 0) {
-        estadosPorMes[mes] = 'Activo';
-      } else {
-        const anterior = totalesPorMes[mesesOrdenados[i - 1]];
-        const actual = totalesPorMes[mes];
-        if (actual > anterior) estadosPorMes[mes] = 'Subió';
-        else if (actual < anterior) estadosPorMes[mes] = 'Bajó';
-        else estadosPorMes[mes] = 'Activo';
+    // Extraer servicios de cada factura y agrupar por mes
+    const serviciosPorMes = {};
+    
+    result.recordset.forEach(factura => {
+      const anioMes = `${factura.Anio}-${String(factura.MesNumero).padStart(2, '0')}`;
+      const mesNombre = mesesEspanol[factura.MesNombre] || factura.MesNombre;
+      
+      if (!serviciosPorMes[anioMes]) {
+        serviciosPorMes[anioMes] = {
+          anio: factura.Anio,
+          mesNumero: factura.MesNumero,
+          mesNombre: mesNombre,
+          servicios: {}
+        };
+      }
+      
+      // Extraer servicios del campo Cliente (donde guardamos cliente + servicios)
+      const clienteCompleto = factura.Cliente || '';
+      
+      // Buscar servicios en el formato: "Servicio de localizacion ... (XXX disp.)"
+      const regexServicios = /Servicio de localizacion[^;]+ \((\d+) disp\.\)/g;
+      let match;
+      
+      while ((match = regexServicios.exec(clienteCompleto)) !== null) {
+        const servicioCompleto = match[0];
+        const cantidad = parseInt(match[1]);
+        
+        // Extraer el nombre del servicio (ej: "1 a 5,000 dispositivos")
+        const nombreServicio = servicioCompleto.match(/Servicio de localizacion (.+?) \(/)?.[1] || servicioCompleto;
+        
+        if (!serviciosPorMes[anioMes].servicios[nombreServicio]) {
+          serviciosPorMes[anioMes].servicios[nombreServicio] = {
+            nombre: nombreServicio,
+            cantidad: 0,
+            facturas: []
+          };
+        }
+        
+        serviciosPorMes[anioMes].servicios[nombreServicio].cantidad += cantidad;
+        serviciosPorMes[anioMes].servicios[nombreServicio].facturas.push({
+          numero: factura.NumeroFactura,
+          fecha: factura.FechaEmision,
+          cantidad: cantidad
+        });
       }
     });
-    // Agregar el estado a cada factura según su mes
-    const datos = facturas.map(f => ({
-      NumeroFactura: f.NumeroFactura,
-      Cliente: f.Cliente,
-      Mes: f.Mes,
-      TotalMes: totalesPorMes[f.Mes],
-      Estado: estadosPorMes[f.Mes]
-    }));
 
-    res.render('dashboard', { datos });
+    // Convertir a array y ordenar cronológicamente
+    const mesesOrdenados = Object.keys(serviciosPorMes).sort();
+    
+    // Calcular estados para cada servicio
+    const dashboardData = [];
+    
+    mesesOrdenados.forEach((anioMes, index) => {
+      const mesActual = serviciosPorMes[anioMes];
+      const serviciosConEstado = [];
+      
+      Object.values(mesActual.servicios).forEach(servicio => {
+        let estado = 'Nuevo';
+        let diferencia = 0;
+        let cantidadAnterior = 0;
+        
+        // Buscar el mismo servicio en el mes anterior
+        if (index > 0) {
+          const anioMesAnterior = mesesOrdenados[index - 1];
+          const mesAnterior = serviciosPorMes[anioMesAnterior];
+          
+          if (mesAnterior.servicios[servicio.nombre]) {
+            cantidadAnterior = mesAnterior.servicios[servicio.nombre].cantidad;
+            diferencia = servicio.cantidad - cantidadAnterior;
+            
+            if (diferencia > 0) {
+              estado = 'Subió';
+            } else if (diferencia < 0) {
+              estado = 'Bajó';
+            } else {
+              estado = 'Estable';
+            }
+          }
+        }
+        
+        serviciosConEstado.push({
+          nombre: servicio.nombre,
+          cantidad: servicio.cantidad,
+          cantidadAnterior: cantidadAnterior,
+          diferencia: diferencia,
+          estado: estado,
+          facturas: servicio.facturas
+        });
+      });
+      
+      // Calcular total del mes
+      const totalMes = serviciosConEstado.reduce((sum, s) => sum + s.cantidad, 0);
+      
+      dashboardData.push({
+        anioMes: anioMes,
+        anio: mesActual.anio,
+        mesNumero: mesActual.mesNumero,
+        mesNombre: mesActual.mesNombre,
+        servicios: serviciosConEstado,
+        totalDispositivos: totalMes
+      });
+    });
+
+    res.render('dashboard', { dashboardData });
   } catch (err) {
     console.error('Error al generar dashboard:', err);
-    res.status(500).send('Error al generar el dashboard');
+    res.status(500).send('Error al generar el dashboard: ' + err.message);
   }
 });
 
@@ -114,7 +220,19 @@ app.get('/extraerfacturapdf', async (req, res) => {
   try {
     const poolInstance = await getPool();
     const result = await poolInstance.request().query('SELECT * FROM Facturas');
-    res.render('extraerfacturapdf', { facturas: result.recordset });
+    
+    // Formatear los montos para mostrar
+    const facturasFormateadas = result.recordset.map(f => ({
+      ...f,
+      MontoTotalFormateado: new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency: 'USD',
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2
+      }).format(parseFloat(f.MontoTotal))
+    }));
+    
+    res.render('extraerfacturapdf', { facturas: facturasFormateadas });
   } catch (err) {
     console.error('Error al cargar las facturas:', err);
     res.render('extraerfacturapdf', { facturas: [] });
@@ -223,6 +341,87 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       let montoMatch = texto.match(/TOTALUSD[\s$]+([\d.,]+)/i) ||
         texto.match(/TOTAL[\s$]+([\d.,]+)/i);
       montoTotal = montoMatch ? limpiarNumero(montoMatch[1]) : '0.00';
+    } else if (texto.includes('Global AVL') || texto.includes('Hiber Data Stream')) {
+      // FORMATO_GLOBAL_AVL
+      tipoPDF = 'FORMATO_GLOBAL_AVL';
+      
+      // Extraer número de factura
+      const facturaMatch = texto.match(/Factura\s+(GAVL[\dP\-]+)/i);
+      numeroFactura = facturaMatch ? facturaMatch[1] : 'No encontrado';
+      
+      // Extraer fecha de emisión
+      const fechaMatch = texto.match(/Fecha:\s*(\d{4})\/(\d{2})\/(\d{2})/);
+      if (fechaMatch) {
+        const [_, anio, mes, dia] = fechaMatch;
+        fechaEmision = `${anio}-${mes}-${dia}`;
+      }
+      
+      // No hay fecha de vencimiento explícita
+      fechaVencimiento = null;
+      
+      // Extraer información del cliente
+      const clienteMatch = texto.match(/Cliente:\s*([\s\S]*?)(?=RUT:|Enviar a:)/i);
+      let infoCliente = '';
+      if (clienteMatch) {
+        infoCliente = clienteMatch[1]
+          .replace(/\n+/g, ' ')
+          .replace(/\s{2,}/g, ' ')
+          .trim();
+      }
+      
+      // Extraer servicios con cantidad > 0
+      let descripcionServicios = '';
+      const lineas = texto.split('\n');
+      
+      for (let linea of lineas) {
+        linea = linea.trim();
+        // Buscar líneas como: "1Servicio de localizacion 1 a 5,000 dispositivos9712,50 $2.427,50 $"
+        if (/^\d+Servicio de localizacion/.test(linea)) {
+          // Extraer número del item, descripción y cantidad
+          const partes = linea.match(/^(\d+)(Servicio de localizacion[^0-9]+?)(\d+)/);
+          if (partes) {
+            const cantidad = parseInt(partes[3]);
+            if (cantidad > 0) {
+              const desc = partes[2].trim();
+              descripcionServicios += desc + ' (' + cantidad + ' disp.); ';
+            }
+          }
+        }
+      }
+      
+      // Combinar cliente y servicios
+      cliente = infoCliente;
+      if (descripcionServicios) {
+        cliente += ' - ' + descripcionServicios.slice(0, -2); // Quitar último "; "
+      }
+      
+      // Extraer monto total - buscar todas las líneas con "Total" y tomar la última que no sea "Sub-Total" ni "Total de"
+      let totalEncontrado = null;
+      
+      for (let linea of lineas) {
+        linea = linea.trim();
+        // Si la línea empieza con "Total" (no "Sub-Total" ni "Total de")
+        if (linea.startsWith('Total') && !linea.startsWith('Sub-Total') && !linea.startsWith('Total de')) {
+          // Extraer el número que viene después de "Total"
+          const match = linea.match(/Total\s*([\d.,]+)/);
+          if (match) {
+            totalEncontrado = match[1];
+            console.log(`✓ Total encontrado: línea="${linea}", valor="${totalEncontrado}"`);
+          }
+        }
+      }
+      
+      if (totalEncontrado) {
+        montoTotal = totalEncontrado;
+      }
+      
+      console.log('Formato Global AVL detectado:', {
+        numeroFactura,
+        fechaEmision,
+        cliente: cliente.substring(0, 150) + (cliente.length > 150 ? '...' : ''),
+        montoTotal: montoTotal,
+        montoLimpio: limpiarNumero(montoTotal)
+      });
     }
 
     if (tipoPDF === 'DESCONOCIDO') {
@@ -237,21 +436,28 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       numeroFactura,
       fechaEmision,
       fechaVencimiento,
-      cliente,
-      montoTotal
+      cliente: cliente.substring(0, 100),
+      montoTotal,
+      montoLimpio: limpiarNumero(montoTotal)
     });
 
     const poolInstance = await getPool();
+    const montoFinal = limpiarNumero(montoTotal);
+    
+    console.log(`Guardando en BD - MontoTotal: ${montoFinal} (tipo: ${typeof montoFinal})`);
+    
     await poolInstance.request()
       .input('NumeroFactura', sql.VarChar, numeroFactura)
       .input('FechaEmision', sql.Date, fechaEmision)
       .input('FechaVencimiento', sql.Date, fechaVencimiento)
       .input('Cliente', sql.VarChar, cliente)
-      .input('MontoTotal', sql.Decimal(18,2), limpiarNumero(montoTotal))
+      .input('MontoTotal', sql.Decimal(18,4), montoFinal)
       .query(`
         INSERT INTO Facturas (NumeroFactura, FechaEmision, FechaVencimiento, Cliente, MontoTotal)
         VALUES (@NumeroFactura, @FechaEmision, @FechaVencimiento, @Cliente, @MontoTotal)
       `);
+    
+    console.log('✓ Factura guardada exitosamente');
 
     res.redirect('/extraerfacturapdf');
   } catch (error) {
@@ -259,5 +465,7 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
     res.status(500).send('Error al procesar la factura: ' + error.message + '<br>' + error.stack);
   }
 });
+
+
 
 iniciarServidor();
