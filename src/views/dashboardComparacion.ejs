@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Comparación - Factura por Factura</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        .header {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+            margin-bottom: 30px;
+        }
+        
+        .header h1 {
+            color: #333;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .nav-buttons {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 15px;
+        }
+        
+        .nav-buttons a {
+            padding: 12px 24px;
+            background: white;
+            color: #667eea;
+            text-decoration: none;
+            border-radius: 8px;
+            font-weight: 600;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            transition: all 0.3s;
+        }
+        
+        .nav-buttons a:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+        }
+        
+        .mes-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .mes-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 25px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #667eea;
+        }
+        
+        .mes-title {
+            font-size: 2em;
+            color: #333;
+            font-weight: 700;
+        }
+        
+        .mes-stats {
+            text-align: right;
+        }
+        
+        .mes-stats .stat {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+        
+        .mes-stats .total {
+            font-size: 1.5em;
+            color: #667eea;
+            font-weight: 700;
+        }
+        
+        .servicio-block {
+            margin-bottom: 30px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+        }
+        
+        .servicio-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .servicio-nombre {
+            font-size: 1.3em;
+            font-weight: 600;
+        }
+        
+        .servicio-totales {
+            text-align: right;
+        }
+        
+        .servicio-totales div {
+            font-size: 0.95em;
+            margin-bottom: 3px;
+        }
+        
+        .comparaciones-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .comparaciones-table thead {
+            background: #f5f5f5;
+        }
+        
+        .comparaciones-table th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #333;
+            border-bottom: 2px solid #ddd;
+        }
+        
+        .comparaciones-table td {
+            padding: 15px;
+            border-bottom: 1px solid #eee;
+        }
+        
+        .comparaciones-table tr:hover {
+            background: #f9f9f9;
+        }
+        
+        .factura-numero {
+            font-weight: 600;
+            color: #667eea;
+        }
+        
+        .fecha {
+            color: #666;
+            font-size: 0.9em;
+        }
+        
+        .cantidad {
+            font-size: 1.1em;
+            font-weight: 600;
+            color: #333;
+        }
+        
+        .monto {
+            font-size: 1em;
+            color: #666;
+        }
+        
+        .estado-badge {
+            display: inline-block;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-weight: 600;
+            font-size: 0.85em;
+        }
+        
+        .estado-subio {
+            background: #d4edda;
+            color: #155724;
+        }
+        
+        .estado-bajo {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        
+        .estado-estable {
+            background: #d1ecf1;
+            color: #0c5460;
+        }
+        
+        .estado-nuevo {
+            background: #fff3cd;
+            color: #856404;
+        }
+        
+        .estado-primer-mes {
+            background: #e2e3e5;
+            color: #383d41;
+        }
+        
+        .diferencia {
+            font-weight: 600;
+            font-size: 1em;
+        }
+        
+        .diferencia.positiva {
+            color: #28a745;
+        }
+        
+        .diferencia.negativa {
+            color: #dc3545;
+        }
+        
+        .diferencia.neutral {
+            color: #6c757d;
+        }
+        
+        .porcentaje {
+            font-size: 0.9em;
+            font-weight: 600;
+            margin-left: 5px;
+        }
+        
+        .arrow {
+            font-size: 1.2em;
+            margin-right: 5px;
+        }
+        
+        .no-data {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+            font-size: 1.1em;
+        }
+        
+        .column-actual {
+            background: #f0f8ff;
+        }
+        
+        .column-anterior {
+            background: #fff9f0;
+        }
+        
+        .column-comparacion {
+            background: #f0fff4;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>📊 Dashboard de Comparación Detallada</h1>
+            <p>Análisis factura por factura y servicio por servicio</p>
+        </div>
+        
+        <div class="nav-buttons">
+            <a href="/">← Inicio</a>
+            <a href="/dashboard">Dashboard por Mes</a>
+            <a href="/extraerfacturapdf">Ver Facturas</a>
+        </div>
+
+        <% if (dashboardComparacion.length === 0) { %>
+            <div class="mes-section">
+                <div class="no-data">
+                    No hay datos de facturas para mostrar. Por favor, sube algunas facturas primero.
+                </div>
+            </div>
+        <% } else { %>
+            <% dashboardComparacion.forEach((mes, mesIndex) => { %>
+                <div class="mes-section">
+                    <div class="mes-header">
+                        <div class="mes-title">
+                            <%= mes.mesNombre %> <%= mes.anio %>
+                        </div>
+                        <div class="mes-stats">
+                            <div class="stat"><%= mes.servicios.length %> servicio(s)</div>
+                            <div class="total">
+                                <%= mes.servicios.reduce((sum, s) => sum + s.totalDispositivosActual, 0).toFixed(2) %> licencias
+                            </div>
+                        </div>
+                    </div>
+
+                    <% if (mes.servicios.length === 0) { %>
+                        <div class="no-data">No hay servicios registrados para este mes.</div>
+                    <% } else { %>
+                        <% mes.servicios.forEach((servicio, servicioIndex) => { %>
+                            <div class="servicio-block">
+                                <div class="servicio-header">
+                                    <div class="servicio-nombre">
+                                        🔧 <%= servicio.nombreServicio %>
+                                    </div>
+                                    <div class="servicio-totales">
+                                        <div><strong><%= servicio.totalDispositivosActual %></strong> dispositivos</div>
+                                        <div>$<%= servicio.totalMontoActual.toFixed(2) %> USD</div>
+                                    </div>
+                                </div>
+
+                                <table class="comparaciones-table">
+                                    <thead>
+                                        <tr>
+                                            <th colspan="3" class="column-actual">📄 Factura Actual</th>
+                                            <th colspan="3" class="column-anterior">📋 Factura Anterior</th>
+                                            <th colspan="2" class="column-comparacion">📈 Comparación</th>
+                                        </tr>
+                                        <tr>
+                                            <th class="column-actual">N° Factura</th>
+                                            <th class="column-actual">Fecha</th>
+                                            <th class="column-actual">Cantidad</th>
+                                            <th class="column-anterior">N° Factura</th>
+                                            <th class="column-anterior">Fecha</th>
+                                            <th class="column-anterior">Cantidad</th>
+                                            <th class="column-comparacion">Diferencia</th>
+                                            <th class="column-comparacion">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <% servicio.comparaciones.forEach((comp, compIndex) => { %>
+                                            <tr>
+                                                <!-- Factura Actual -->
+                                                <td class="column-actual">
+                                                    <div class="factura-numero"><%= comp.facturaActual %></div>
+                                                </td>
+                                                <td class="column-actual">
+                                                    <div class="fecha">
+                                                        <%= new Date(comp.fechaActual).toLocaleDateString('es-CO') %>
+                                                    </div>
+                                                </td>
+                                                <td class="column-actual">
+                                                    <div class="cantidad"><%= comp.cantidadActual %> disp.</div>
+                                                    <div class="monto">$<%= comp.montoActual.toFixed(2) %></div>
+                                                </td>
+
+                                                <!-- Factura Anterior -->
+                                                <td class="column-anterior">
+                                                    <% if (comp.facturaAnterior) { %>
+                                                        <div class="factura-numero"><%= comp.facturaAnterior %></div>
+                                                    <% } else { %>
+                                                        <span style="color: #999;">-</span>
+                                                    <% } %>
+                                                </td>
+                                                <td class="column-anterior">
+                                                    <% if (comp.fechaAnterior) { %>
+                                                        <div class="fecha">
+                                                            <%= new Date(comp.fechaAnterior).toLocaleDateString('es-CO') %>
+                                                        </div>
+                                                    <% } else { %>
+                                                        <span style="color: #999;">-</span>
+                                                    <% } %>
+                                                </td>
+                                                <td class="column-anterior">
+                                                    <% if (comp.cantidadAnterior > 0) { %>
+                                                        <div class="cantidad"><%= comp.cantidadAnterior %> disp.</div>
+                                                        <div class="monto">$<%= comp.montoAnterior.toFixed(2) %></div>
+                                                    <% } else { %>
+                                                        <span style="color: #999;">-</span>
+                                                    <% } %>
+                                                </td>
+
+                                                <!-- Comparación -->
+                                                <td class="column-comparacion">
+                                                    <% if (comp.primerMes) { %>
+                                                        <div class="diferencia neutral">Primer mes</div>
+                                                    <% } else if (comp.esNuevo) { %>
+                                                        <div class="diferencia positiva">
+                                                            +<%= comp.diferenciaCantidad %> disp.
+                                                        </div>
+                                                        <div class="porcentaje" style="color: #28a745;">
+                                                            (Nuevo servicio)
+                                                        </div>
+                                                    <% } else { %>
+                                                        <div class="diferencia <%= comp.diferenciaCantidad > 0 ? 'positiva' : comp.diferenciaCantidad < 0 ? 'negativa' : 'neutral' %>">
+                                                            <% if (comp.diferenciaCantidad > 0) { %>
+                                                                <span class="arrow">↑</span>+<%= comp.diferenciaCantidad %>
+                                                            <% } else if (comp.diferenciaCantidad < 0) { %>
+                                                                <span class="arrow">↓</span><%= comp.diferenciaCantidad %>
+                                                            <% } else { %>
+                                                                <span class="arrow">→</span>0
+                                                            <% } %>
+                                                            disp.
+                                                        </div>
+                                                        <div class="porcentaje <%= comp.diferenciaCantidad > 0 ? 'positiva' : comp.diferenciaCantidad < 0 ? 'negativa' : 'neutral' %>">
+                                                            (<%= comp.porcentajeCambio %>%)
+                                                        </div>
+                                                    <% } %>
+                                                </td>
+                                                <td class="column-comparacion">
+                                                    <% if (comp.primerMes) { %>
+                                                        <span class="estado-badge estado-primer-mes">Primer Mes</span>
+                                                    <% } else if (comp.esNuevo) { %>
+                                                        <span class="estado-badge estado-nuevo">🆕 Nuevo</span>
+                                                    <% } else if (comp.diferenciaCantidad > 0) { %>
+                                                        <span class="estado-badge estado-subio">📈 Subió</span>
+                                                    <% } else if (comp.diferenciaCantidad < 0) { %>
+                                                        <span class="estado-badge estado-bajo">📉 Bajó</span>
+                                                    <% } else { %>
+                                                        <span class="estado-badge estado-estable">➡️ Estable</span>
+                                                    <% } %>
+                                                </td>
+                                            </tr>
+                                        <% }); %>
+                                    </tbody>
+                                </table>
+                            </div>
+                        <% }); %>
+                    <% } %>
+                </div>
+            <% }); %>
+        <% } %>
+    </div>
+</body>
+</html>

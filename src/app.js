@@ -69,10 +69,85 @@ function limpiarNumero(valor) {
   return resultado;
 }
 
+// Función para extraer servicios del texto de la factura
+function extraerServicios(textoCliente) {
+  const servicios = [];
+  
+  // Patrón 1: Servicios Global IT - Formato: "Global IT Services - CERT (Digital Security)1,0013 541 751,00"
+  const patronGlobalIT = /Global IT Services - ([^0-9]+?)(\d+),(\d+)([\d\s,.]+)/g;
+  let match;
+  
+  while ((match = patronGlobalIT.exec(textoCliente)) !== null) {
+    const nombreServicio = match[1].trim();
+    const cantidadEntera = match[2];
+    const cantidadDecimal = match[3];
+    const cantidad = parseFloat(`${cantidadEntera}.${cantidadDecimal}`) || 0;
+    
+    if (cantidad > 0 && nombreServicio) {
+      servicios.push({
+        nombre: nombreServicio,
+        cantidad: cantidad
+      });
+    }
+  }
+  
+  // Patrón 2: Office 365 Licences - Formato: "Extra Light Frontline Worker210 740,74"
+  const patronOffice365 = /(Extra Light Frontline Worker|Light|Extended standard|Extended advanced|Frontline Shared Account)\s*(\d+)\s*([\d\s.,]+)/g;
+  
+  while ((match = patronOffice365.exec(textoCliente)) !== null) {
+    const nombreServicio = match[1].trim();
+    const cantidad = parseInt(match[2]) || 0;
+    
+    if (cantidad > 0 && nombreServicio) {
+      servicios.push({
+        nombre: `Office 365 - ${nombreServicio}`,
+        cantidad: cantidad
+      });
+    }
+  }
+  
+  // Patrón 3: Global Guarding Platform - Formato: "Global Guarding Platform - TrackTik1,00"
+  const patronGuarding = /Global Guarding Platform - ([^0-9]+?)(\d+),(\d+)/g;
+  
+  while ((match = patronGuarding.exec(textoCliente)) !== null) {
+    const nombreServicio = match[1].trim();
+    const cantidadEntera = match[2];
+    const cantidadDecimal = match[3];
+    const cantidad = parseFloat(`${cantidadEntera}.${cantidadDecimal}`) || 0;
+    
+    if (cantidad > 0 && nombreServicio) {
+      servicios.push({
+        nombre: `Global Guarding Platform - ${nombreServicio}`,
+        cantidad: cantidad
+      });
+    }
+  }
+  
+  // Patrón 4: Mark-up services - Formato: "Mark-up Digital identity1,00"
+  const patronMarkup = /Mark-up\s*-?\s*([^0-9]+?)(\d+),(\d+)/g;
+  
+  while ((match = patronMarkup.exec(textoCliente)) !== null) {
+    const nombreServicio = match[1].trim();
+    const cantidadEntera = match[2];
+    const cantidadDecimal = match[3];
+    const cantidad = parseFloat(`${cantidadEntera}.${cantidadDecimal}`) || 0;
+    
+    if (cantidad > 0 && nombreServicio) {
+      servicios.push({
+        nombre: `Mark-up - ${nombreServicio}`,
+        cantidad: cantidad
+      });
+    }
+  }
+  
+  return servicios;
+}
+
 app.get('/', (req, res) => {
   res.render('index');
 });
 
+// RUTA ORIGINAL: Dashboard por Mes
 app.get('/dashboard', async (req, res) => {
   try {
     const pool = await sql.connect(dbconfig);
@@ -121,19 +196,13 @@ app.get('/dashboard', async (req, res) => {
         };
       }
       
-      // Extraer servicios del campo Cliente (donde guardamos cliente + servicios)
+      // Extraer servicios del campo Cliente
       const clienteCompleto = factura.Cliente || '';
+      const serviciosEncontrados = extraerServicios(clienteCompleto);
       
-      // Buscar servicios en el formato: "Servicio de localizacion ... (XXX disp.)"
-      const regexServicios = /Servicio de localizacion[^;]+ \((\d+) disp\.\)/g;
-      let match;
-      
-      while ((match = regexServicios.exec(clienteCompleto)) !== null) {
-        const servicioCompleto = match[0];
-        const cantidad = parseInt(match[1]);
-        
-        // Extraer el nombre del servicio (ej: "1 a 5,000 dispositivos")
-        const nombreServicio = servicioCompleto.match(/Servicio de localizacion (.+?) \(/)?.[1] || servicioCompleto;
+      serviciosEncontrados.forEach(servicio => {
+        const nombreServicio = servicio.nombre;
+        const cantidad = servicio.cantidad;
         
         if (!serviciosPorMes[anioMes].servicios[nombreServicio]) {
           serviciosPorMes[anioMes].servicios[nombreServicio] = {
@@ -149,7 +218,7 @@ app.get('/dashboard', async (req, res) => {
           fecha: factura.FechaEmision,
           cantidad: cantidad
         });
-      }
+      });
     });
 
     // Convertir a array y ordenar cronológicamente
@@ -212,6 +281,183 @@ app.get('/dashboard', async (req, res) => {
     res.render('dashboard', { dashboardData });
   } catch (err) {
     console.error('Error al generar dashboard:', err);
+    res.status(500).send('Error al generar el dashboard: ' + err.message);
+  }
+});
+
+// NUEVA RUTA: Dashboard de Comparación Factura por Factura
+app.get('/dashboard-comparacion', async (req, res) => {
+  try {
+    const pool = await sql.connect(dbconfig);
+    const result = await pool.request().query(`
+      SELECT 
+          NumeroFactura,
+          Cliente,
+          FechaEmision,
+          YEAR(FechaEmision) AS Anio,
+          MONTH(FechaEmision) AS MesNumero,
+          DATENAME(MONTH, FechaEmision) AS MesNombre,
+          MontoTotal
+      FROM Facturas
+      WHERE FechaEmision IS NOT NULL
+      ORDER BY FechaEmision;
+    `);
+
+    const mesesEspanol = {
+      'January': 'Enero',
+      'February': 'Febrero',
+      'March': 'Marzo',
+      'April': 'Abril',
+      'May': 'Mayo',
+      'June': 'Junio',
+      'July': 'Julio',
+      'August': 'Agosto',
+      'September': 'Septiembre',
+      'October': 'Octubre',
+      'November': 'Noviembre',
+      'December': 'Diciembre'
+    };
+
+    // Estructura: { "2025-07": { "Servicio X": { facturas: [...] } } }
+    const serviciosPorMes = {};
+    
+    result.recordset.forEach(factura => {
+      const anioMes = `${factura.Anio}-${String(factura.MesNumero).padStart(2, '0')}`;
+      const mesNombre = mesesEspanol[factura.MesNombre] || factura.MesNombre;
+      
+      if (!serviciosPorMes[anioMes]) {
+        serviciosPorMes[anioMes] = {
+          anio: factura.Anio,
+          mesNumero: factura.MesNumero,
+          mesNombre: mesNombre,
+          servicios: {}
+        };
+      }
+      
+      const clienteCompleto = factura.Cliente || '';
+      const serviciosEncontrados = extraerServicios(clienteCompleto);
+      
+      serviciosEncontrados.forEach(servicio => {
+        const nombreServicio = servicio.nombre;
+        const cantidad = servicio.cantidad;
+        
+        if (!serviciosPorMes[anioMes].servicios[nombreServicio]) {
+          serviciosPorMes[anioMes].servicios[nombreServicio] = {
+            nombre: nombreServicio,
+            facturas: []
+          };
+        }
+        
+        serviciosPorMes[anioMes].servicios[nombreServicio].facturas.push({
+          numero: factura.NumeroFactura,
+          fecha: factura.FechaEmision,
+          cantidad: cantidad,
+          montoTotal: parseFloat(factura.MontoTotal) || 0
+        });
+      });
+    });
+
+    // Convertir a array y procesar comparaciones
+    const mesesOrdenados = Object.keys(serviciosPorMes).sort();
+    const dashboardComparacion = [];
+    
+    mesesOrdenados.forEach((anioMes, index) => {
+      const mesActual = serviciosPorMes[anioMes];
+      const serviciosData = [];
+      
+      Object.values(mesActual.servicios).forEach(servicio => {
+        let facturasComparacion = [];
+        
+        // Comparar con mes anterior
+        if (index > 0) {
+          const anioMesAnterior = mesesOrdenados[index - 1];
+          const mesAnterior = serviciosPorMes[anioMesAnterior];
+          
+          if (mesAnterior.servicios[servicio.nombre]) {
+            const facturasAnteriores = mesAnterior.servicios[servicio.nombre].facturas;
+            
+            // Comparar cada factura del mes actual con todas del mes anterior
+            servicio.facturas.forEach(facturaActual => {
+              facturasAnteriores.forEach(facturaAnterior => {
+                const diferenciaCantidad = facturaActual.cantidad - facturaAnterior.cantidad;
+                const diferenciaMonto = facturaActual.montoTotal - facturaAnterior.montoTotal;
+                
+                facturasComparacion.push({
+                  facturaActual: facturaActual.numero,
+                  fechaActual: facturaActual.fecha,
+                  cantidadActual: facturaActual.cantidad,
+                  montoActual: facturaActual.montoTotal,
+                  facturaAnterior: facturaAnterior.numero,
+                  fechaAnterior: facturaAnterior.fecha,
+                  cantidadAnterior: facturaAnterior.cantidad,
+                  montoAnterior: facturaAnterior.montoTotal,
+                  diferenciaCantidad: diferenciaCantidad,
+                  diferenciaMonto: diferenciaMonto,
+                  porcentajeCambio: facturaAnterior.cantidad > 0 
+                    ? ((diferenciaCantidad / facturaAnterior.cantidad) * 100).toFixed(2)
+                    : 0
+                });
+              });
+            });
+          } else {
+            // Servicio nuevo en este mes
+            servicio.facturas.forEach(facturaActual => {
+              facturasComparacion.push({
+                facturaActual: facturaActual.numero,
+                fechaActual: facturaActual.fecha,
+                cantidadActual: facturaActual.cantidad,
+                montoActual: facturaActual.montoTotal,
+                facturaAnterior: null,
+                fechaAnterior: null,
+                cantidadAnterior: 0,
+                montoAnterior: 0,
+                diferenciaCantidad: facturaActual.cantidad,
+                diferenciaMonto: facturaActual.montoTotal,
+                porcentajeCambio: 100,
+                esNuevo: true
+              });
+            });
+          }
+        } else {
+          // Primer mes, no hay comparación
+          servicio.facturas.forEach(facturaActual => {
+            facturasComparacion.push({
+              facturaActual: facturaActual.numero,
+              fechaActual: facturaActual.fecha,
+              cantidadActual: facturaActual.cantidad,
+              montoActual: facturaActual.montoTotal,
+              facturaAnterior: null,
+              fechaAnterior: null,
+              cantidadAnterior: 0,
+              montoAnterior: 0,
+              diferenciaCantidad: 0,
+              diferenciaMonto: 0,
+              porcentajeCambio: 0,
+              primerMes: true
+            });
+          });
+        }
+        
+        serviciosData.push({
+          nombreServicio: servicio.nombre,
+          comparaciones: facturasComparacion,
+          totalDispositivosActual: servicio.facturas.reduce((sum, f) => sum + f.cantidad, 0),
+          totalMontoActual: servicio.facturas.reduce((sum, f) => sum + f.montoTotal, 0)
+        });
+      });
+      
+      dashboardComparacion.push({
+        anioMes: anioMes,
+        anio: mesActual.anio,
+        mesNumero: mesActual.mesNumero,
+        mesNombre: mesActual.mesNombre,
+        servicios: serviciosData
+      });
+    });
+
+    res.render('dashboard-comparacion', { dashboardComparacion });
+  } catch (err) {
+    console.error('Error al generar dashboard de comparación:', err);
     res.status(500).send('Error al generar el dashboard: ' + err.message);
   }
 });
@@ -466,6 +712,57 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
   }
 });
 
+// RUTA DE DIAGNÓSTICO - Agrega esta ruta TEMPORAL para ver qué hay en tus facturas
+app.get('/debug-facturas', async (req, res) => {
+  try {
+    const pool = await sql.connect(dbconfig);
+    const result = await pool.request().query(`
+      SELECT 
+          NumeroFactura,
+          Cliente,
+          FechaEmision,
+          MontoTotal
+      FROM Facturas
+      ORDER BY FechaEmision;
+    `);
 
+    let html = '<h1>DEBUG: Contenido de Facturas</h1>';
+    html += '<style>body{font-family:monospace;padding:20px} .factura{border:2px solid #333;margin:20px 0;padding:15px;background:#f5f5f5} .campo{margin:10px 0;padding:10px;background:white}</style>';
+    
+    if (result.recordset.length === 0) {
+      html += '<p style="color:red;font-size:20px">⚠️ NO HAY FACTURAS EN LA BASE DE DATOS</p>';
+    } else {
+      result.recordset.forEach(factura => {
+        html += '<div class="factura">';
+        html += `<h2>Factura: ${factura.NumeroFactura}</h2>`;
+        html += `<div class="campo"><strong>Fecha:</strong> ${factura.FechaEmision}</div>`;
+        html += `<div class="campo"><strong>Monto:</strong> ${factura.MontoTotal}</div>`;
+        html += `<div class="campo"><strong>Campo Cliente (donde buscan servicios):</strong><br><pre>${factura.Cliente}</pre></div>`;
+        
+        // Probar la nueva función de extracción
+        const serviciosEncontrados = extraerServicios(factura.Cliente);
+        
+        if (serviciosEncontrados.length > 0) {
+          html += '<div class="campo" style="background:#d4edda"><strong>✓ Servicios encontrados:</strong><br>';
+          serviciosEncontrados.forEach(servicio => {
+            html += `- ${servicio.nombre}: ${servicio.cantidad} unidades<br>`;
+          });
+          html += '</div>';
+        } else {
+          html += '<div class="campo" style="background:#f8d7da"><strong>✗ NO se encontraron servicios</strong></div>';
+        }
+        
+        html += '</div>';
+      });
+    }
+    
+    html += '<br><br><a href="/dashboard-comparacion" style="padding:10px 20px;background:#007bff;color:white;text-decoration:none;border-radius:5px">Ver Dashboard de Comparación</a>';
+    html += ' <a href="/dashboard" style="padding:10px 20px;background:#28a745;color:white;text-decoration:none;border-radius:5px;margin-left:10px">Ver Dashboard por Mes</a>';
+    
+    res.send(html);
+  } catch (err) {
+    res.status(500).send('Error: ' + err.message);
+  }
+});
 
 iniciarServidor();
