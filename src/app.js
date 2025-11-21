@@ -15,6 +15,8 @@ app.use(express.static('uploads'));
 app.use(express.urlencoded({ extended: true }));
 app.use(express.json());
 app.use(express.static('public'));
+app.use(express.static(path.join(__dirname, 'public')));
+
 let pool;
 
 async function iniciarServidor() {
@@ -89,6 +91,7 @@ app.get('/dashboard', async (req, res) => {
     const poolInstance = await getPool();
     
     // Obtener todas las facturas ordenadas por fecha
+    // CAMBIO CRÍTICO: Usar DECIMAL(18,4) en lugar de (18,2) para no perder precisión
     const result = await poolInstance.request().query(`
       SELECT 
         NumeroFactura,
@@ -103,6 +106,12 @@ app.get('/dashboard', async (req, res) => {
     `);
 
     const facturas = result.recordset;
+
+    // LOG para debug
+    console.log('=== FACTURAS DESDE BD ===');
+    facturas.slice(0, 3).forEach(f => {
+      console.log(`#${f.NumeroFactura}: ${f.MontoTotal} (tipo: ${typeof f.MontoTotal})`);
+    });
 
     // Extraer servicios del nombre del cliente
     const extraerServicio = (cliente) => {
@@ -121,7 +130,14 @@ app.get('/dashboard', async (req, res) => {
       
       // Extrae el nombre principal del cliente
       const nombreBase = cliente.split('-')[0].trim();
-      return nombreBase.substring(0, 50); // Limitar longitud
+      return nombreBase.substring(0, 50);
+    };
+
+    // Función para formatear nombre del mes
+    const formatearMes = (mesAnio) => {
+      const [anio, mes] = mesAnio.split('-');
+      const fecha = new Date(anio, parseInt(mes) - 1, 1);
+      return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: 'long' });
     };
 
     // Agrupar por servicio y mes
@@ -143,12 +159,30 @@ app.get('/dashboard', async (req, res) => {
         };
       }
       
-      serviciosPorMes[servicio][mesAnio].total += parseFloat(factura.MontoTotal);
+      // Convertir el monto a número, manejando tanto strings como números
+      let monto = factura.MontoTotal;
+      if (typeof monto === 'string') {
+        // Reemplazar coma por punto para formato decimal
+        monto = parseFloat(monto.replace(',', '.'));
+      } else {
+        monto = parseFloat(monto);
+      }
+      
+      // Acumular sin redondear aún
+      serviciosPorMes[servicio][mesAnio].total += monto;
       serviciosPorMes[servicio][mesAnio].cantidad += 1;
       serviciosPorMes[servicio][mesAnio].facturas.push({
         numero: factura.NumeroFactura,
         fecha: factura.FechaEmision,
-        monto: factura.MontoTotal
+        monto: monto
+      });
+    });
+
+    // Redondear totales a 3 decimales para mantener precisión
+    Object.keys(serviciosPorMes).forEach(servicio => {
+      Object.keys(serviciosPorMes[servicio]).forEach(mes => {
+        serviciosPorMes[servicio][mes].total = 
+          Math.round(serviciosPorMes[servicio][mes].total * 1000) / 1000;
       });
     });
 
@@ -158,44 +192,53 @@ app.get('/dashboard', async (req, res) => {
     Object.keys(serviciosPorMes).forEach(servicio => {
       const meses = Object.keys(serviciosPorMes[servicio]).sort();
       
-      for (let i = 1; i < meses.length; i++) {
-        const mesActual = meses[i];
-        const mesAnterior = meses[i - 1];
-        
-        const montoActual = serviciosPorMes[servicio][mesActual].total;
-        const montoAnterior = serviciosPorMes[servicio][mesAnterior].total;
-        
-        const diferencia = montoActual - montoAnterior;
-        const porcentaje = ((diferencia / montoAnterior) * 100).toFixed(2);
-        
-        let estado = 'estable';
-        if (Math.abs(porcentaje) < 5) {
-          estado = 'estable';
-        } else if (diferencia > 0) {
-          estado = 'subio';
-        } else {
-          estado = 'bajo';
+      // Comparar cada mes con todos los meses anteriores
+      for (let i = 0; i < meses.length; i++) {
+        for (let j = i + 1; j < meses.length; j++) {
+          const mesAnterior = meses[i];
+          const mesActual = meses[j];
+          
+          const montoAnterior = serviciosPorMes[servicio][mesAnterior].total;
+          const montoActual = serviciosPorMes[servicio][mesActual].total;
+          
+          const diferencia = Math.round((montoActual - montoAnterior) * 1000) / 1000;
+          const porcentaje = montoAnterior > 0 ? 
+            Math.round(((diferencia / montoAnterior) * 100) * 100) / 100 : 0;
+          
+          let estado = 'estable';
+          if (Math.abs(porcentaje) < 5) {
+            estado = 'estable';
+          } else if (diferencia > 0) {
+            estado = 'subio';
+          } else {
+            estado = 'bajo';
+          }
+          
+          comparaciones.push({
+            servicio,
+            mesAnterior: formatearMes(mesAnterior),
+            mesActual: formatearMes(mesActual),
+            montoAnterior: montoAnterior,
+            montoActual: montoActual,
+            diferencia: diferencia,
+            porcentaje: porcentaje,
+            estado,
+            cantidadAnterior: serviciosPorMes[servicio][mesAnterior].cantidad,
+            cantidadActual: serviciosPorMes[servicio][mesActual].cantidad,
+            facturasAnterior: serviciosPorMes[servicio][mesAnterior].facturas,
+            facturasActual: serviciosPorMes[servicio][mesActual].facturas
+          });
         }
-        
-        comparaciones.push({
-          servicio,
-          mesAnterior,
-          mesActual,
-          montoAnterior,
-          montoActual,
-          diferencia,
-          porcentaje,
-          estado,
-          cantidadAnterior: serviciosPorMes[servicio][mesAnterior].cantidad,
-          cantidadActual: serviciosPorMes[servicio][mesActual].cantidad,
-          facturasAnterior: serviciosPorMes[servicio][mesAnterior].facturas,
-          facturasActual: serviciosPorMes[servicio][mesActual].facturas
-        });
       }
     });
 
     // Ordenar por mes más reciente
     comparaciones.sort((a, b) => b.mesActual.localeCompare(a.mesActual));
+
+    console.log('=== COMPARACIONES GENERADAS ===');
+    comparaciones.forEach(c => {
+      console.log(`${c.servicio}: ${c.mesAnterior} ($${c.montoAnterior}) → ${c.mesActual} ($${c.montoActual})`);
+    });
 
     res.render('dashboard', { 
       comparaciones,
