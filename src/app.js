@@ -36,7 +36,6 @@ async function getPool() {
   if (!pool) {
     pool = await sql.connect(dbconfig);
   }
-
   return pool;
 }
 
@@ -84,14 +83,11 @@ app.get('/extraerfacturapdf', async (req, res) => {
     res.render('extraerfacturapdf', { facturas: [] });
   }
 });
-// Agregar esta nueva ruta en tu archivo principal (después de las rutas existentes)
 
 app.get('/dashboard', async (req, res) => {
   try {
     const poolInstance = await getPool();
-    
-    // Obtener todas las facturas ordenadas por fecha
-    // CAMBIO CRÍTICO: Usar DECIMAL(18,4) en lugar de (18,2) para no perder precisión
+
     const result = await poolInstance.request().query(`
       SELECT 
         NumeroFactura,
@@ -107,50 +103,43 @@ app.get('/dashboard', async (req, res) => {
 
     const facturas = result.recordset;
 
-    // LOG para debug
     console.log('=== FACTURAS DESDE BD ===');
     facturas.slice(0, 3).forEach(f => {
       console.log(`#${f.NumeroFactura}: ${f.MontoTotal} (tipo: ${typeof f.MontoTotal})`);
     });
 
-    // Extraer servicios del nombre del cliente
     const extraerServicio = (cliente) => {
       if (!cliente) return 'Sin especificar';
-      
-      // Para facturas de Global AVL
+
       if (cliente.includes('Servicio localizacion')) {
         const match = cliente.match(/Servicio localizacion \((\d+) disp\.\)/);
         return match ? `Localizacion ${match[1]} dispositivos` : 'Servicio de localizacion';
       }
-      
-      // Para facturas tipo INVOICE
+
       if (cliente.includes('Hiber Data Stream')) {
         return 'Hiber Data Stream';
       }
-      
-      // Extrae el nombre principal del cliente
+
       const nombreBase = cliente.split('-')[0].trim();
       return nombreBase.substring(0, 50);
     };
 
-    // Función para formatear nombre del mes
     const formatearMes = (mesAnio) => {
       const [anio, mes] = mesAnio.split('-');
       const fecha = new Date(anio, parseInt(mes) - 1, 1);
       return fecha.toLocaleDateString('es-ES', { year: 'numeric', month: 'long' });
     };
 
-    // Agrupar por servicio y mes
     const serviciosPorMes = {};
-    
+
     facturas.forEach(factura => {
       const servicio = extraerServicio(factura.Cliente);
       const mesAnio = `${factura.Anio}-${String(factura.Mes).padStart(2, '0')}`;
-      
+
       if (!serviciosPorMes[servicio]) {
         serviciosPorMes[servicio] = {};
       }
-      
+
       if (!serviciosPorMes[servicio][mesAnio]) {
         serviciosPorMes[servicio][mesAnio] = {
           total: 0,
@@ -158,53 +147,49 @@ app.get('/dashboard', async (req, res) => {
           facturas: []
         };
       }
-      
-      // Convertir el monto a número, manejando tanto strings como números
+
       let monto = factura.MontoTotal;
       if (typeof monto === 'string') {
-        // Reemplazar coma por punto para formato decimal
         monto = parseFloat(monto.replace(',', '.'));
       } else {
         monto = parseFloat(monto);
       }
-      
-      // Acumular sin redondear aún
+
       serviciosPorMes[servicio][mesAnio].total += monto;
       serviciosPorMes[servicio][mesAnio].cantidad += 1;
       serviciosPorMes[servicio][mesAnio].facturas.push({
         numero: factura.NumeroFactura,
         fecha: factura.FechaEmision,
-        monto: monto
+        monto: monto,
+        // descripción larga que usará el modal para "Servicios Incluidos"
+        descripcion: factura.Cliente
       });
     });
 
-    // Redondear totales a 3 decimales para mantener precisión
     Object.keys(serviciosPorMes).forEach(servicio => {
       Object.keys(serviciosPorMes[servicio]).forEach(mes => {
-        serviciosPorMes[servicio][mes].total = 
+        serviciosPorMes[servicio][mes].total =
           Math.round(serviciosPorMes[servicio][mes].total * 1000) / 1000;
       });
     });
 
-    // Calcular comparaciones
     const comparaciones = [];
-    
+
     Object.keys(serviciosPorMes).forEach(servicio => {
       const meses = Object.keys(serviciosPorMes[servicio]).sort();
-      
-      // Comparar cada mes con todos los meses anteriores
+
       for (let i = 0; i < meses.length; i++) {
         for (let j = i + 1; j < meses.length; j++) {
           const mesAnterior = meses[i];
           const mesActual = meses[j];
-          
+
           const montoAnterior = serviciosPorMes[servicio][mesAnterior].total;
           const montoActual = serviciosPorMes[servicio][mesActual].total;
-          
+
           const diferencia = Math.round((montoActual - montoAnterior) * 1000) / 1000;
-          const porcentaje = montoAnterior > 0 ? 
+          const porcentaje = montoAnterior > 0 ?
             Math.round(((diferencia / montoAnterior) * 100) * 100) / 100 : 0;
-          
+
           let estado = 'estable';
           if (Math.abs(porcentaje) < 5) {
             estado = 'estable';
@@ -213,7 +198,7 @@ app.get('/dashboard', async (req, res) => {
           } else {
             estado = 'bajo';
           }
-          
+
           comparaciones.push({
             servicio,
             mesAnterior: formatearMes(mesAnterior),
@@ -232,7 +217,6 @@ app.get('/dashboard', async (req, res) => {
       }
     });
 
-    // Ordenar por mes más reciente
     comparaciones.sort((a, b) => b.mesActual.localeCompare(a.mesActual));
 
     console.log('=== COMPARACIONES GENERADAS ===');
@@ -240,9 +224,9 @@ app.get('/dashboard', async (req, res) => {
       console.log(`${c.servicio}: ${c.mesAnterior} ($${c.montoAnterior}) → ${c.mesActual} ($${c.montoActual})`);
     });
 
-    res.render('dashboard', { 
+    res.render('dashboard', {
       comparaciones,
-      serviciosPorMes 
+      serviciosPorMes
     });
 
   } catch (err) {
@@ -251,7 +235,6 @@ app.get('/dashboard', async (req, res) => {
   }
 });
 
-// Ruta adicional para vista JSON (útil para debugging)
 app.get('/dashboard/json', async (req, res) => {
   try {
     const poolInstance = await getPool();
@@ -273,7 +256,6 @@ app.get('/dashboard/json', async (req, res) => {
   }
 });
 
-
 app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
   try {
     if (!req.file) throw new Error('No se subió ningún archivo');
@@ -283,15 +265,14 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
     const data = await pdfParse(dataBuffer);
     const texto = data.text;
 
-    // LOG para revisar todo el contenido extraído
     console.log('===== CONTENIDO PDF COMPLETO =====');
     console.log(texto);
     console.log('===== FIN CONTENIDO PDF COMPLETO =====');
 
     let tipoPDF = 'DESCONOCIDO';
-    let cliente = 'No encontrado', numeroFactura = 'No encontrado', fechaEmision = null, fechaVencimiento = null, montoTotal = '0.00';
+    let cliente = 'No encontrado', numeroFactura = 'No encontrado',
+        fechaEmision = null, fechaVencimiento = null, montoTotal = '0.00';
 
-    /** INVOICE INTERNACIONAL **/
     if (texto.includes('INVOICE') && texto.includes('INVOICE NUMBER')) {
       tipoPDF = 'INVOICE_INGLES';
       numeroFactura = texto.match(/INVOICE NUMBER\s*([^\s]+)/i)?.[1] || 'No encontrado';
@@ -306,30 +287,22 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       fechaVencimiento = null;
 
       console.log(`[INVOICE] Extraido: num:${numeroFactura} cliente:${cliente} fecha:${fechaEmision} monto:${montoTotal}`);
-    }
-
-    /** GLOBAL AVL / Hiber Data **/
-    else if (texto.includes('Global AVL') || texto.includes('Hiber Data Stream')) {
+    } else if (texto.includes('Global AVL') || texto.includes('Hiber Data Stream')) {
       tipoPDF = 'FORMATO_GLOBAL_AVL';
 
-      // Número de factura
       const facturaMatch = texto.match(/Factura\s+([A-Za-z0-9\-]+)/i);
       numeroFactura = facturaMatch ? facturaMatch[1] : 'No encontrado';
 
-      // Fecha de emisión
       const fechaMatch = texto.match(/Fecha:\s*(\d{4})\/(\d{2})\/(\d{2})/);
       fechaEmision = fechaMatch ? `${fechaMatch[1]}-${fechaMatch[2]}-${fechaMatch[3]}` : null;
 
-      // Cliente entre 'Cliente:' y 'RUT:'
       const clienteMatch = texto.match(/Cliente:\s*([\s\S]*?)(?=RUT:)/i);
       cliente = clienteMatch ? clienteMatch[1].replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim() : "No encontrado";
 
-      // Servicios y cantidades
       let descripcionServicios = '';
       const lineas = texto.split('\n');
       for (let linea of lineas) {
         linea = linea.trim();
-        // Ejemplo: "1Servicio de localizacion 1 a 5,000 dispositivos9712,50 $2.427,50 $"
         const servicioMatch = linea.match(/^(\d+)\s*Servicio de localizacion[^\d]*([\d,\.]+)[^\$]*\$(\d[\d,\.]*)\s*\$/i);
         if (servicioMatch) {
           const cantidad = servicioMatch[2].replace(/,/g, '').replace(/\./g,'');
@@ -341,16 +314,12 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
         cliente += " - " + descripcionServicios.trim();
       }
 
-      // Monto total
       let totalMatch = texto.match(/Total\s*([\d.,]+)\s*\$/i);
       montoTotal = totalMatch ? limpiarNumero(totalMatch[1]) : '0.00';
       fechaVencimiento = null;
 
       console.log(`[GLOBAL AVL] Extraido: num:${numeroFactura} cliente:${cliente} fecha:${fechaEmision} monto:${montoTotal}`);
-    }
-
-    /** FORMATO CLASICO, por si lo necesitaras en el futuro **/
-    else if (texto.includes('DescriptionQuantityUnit priceAmount')) {
+    } else if (texto.includes('DescriptionQuantityUnit priceAmount')) {
       tipoPDF = 'FORMATO_CLASICO';
       numeroFactura = texto.match(/Number(\d+)/)?.[1] || 'No encontrado';
       const fechaEmisionRaw = texto.match(/Date(\d{4}\/\d{2}\/\d{2})/)?.[1] || null;
@@ -380,7 +349,6 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       }
     }
 
-    // Si no detecta ninguno: guarda como cliente primer bloque/corte
     if (tipoPDF === 'DESCONOCIDO') {
       cliente = texto.slice(0, 120).replace(/\n/g, ' ');
       numeroFactura = 'No encontrado';
@@ -413,7 +381,7 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
 });
 
 app.get('/debug-facturas', async (req, res) => {
-  // Igual que antes
+  // Igual que antes (si decides implementarlo)
 });
 
 iniciarServidor();
