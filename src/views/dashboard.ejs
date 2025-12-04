@@ -8,270 +8,6 @@
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
 <body>
- <style>
-    /* ============================
-       ESTILO BASE CORPORATIVO
-       ============================ */
-    :root {
-        --sec-red: #e30613;
-        --sec-dark: #1a1a1a;
-        --sec-gray: #0b4f64;
-        --sec-blue: #004b8d;
-        --sec-light-blue: #1d7cd3;
-        --sec-gradient: linear-gradient(135deg, #1d7cd3, #004b8d);
-    }
-
-    * {
-        margin: 0;
-        padding: 0;
-        box-sizing: border-box;
-    }
-
-    body {
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-        background: var(--sec-gray);
-        padding: 20px;
-    }
-
-    /* ============================
-       ENCABEZADO
-       ============================ */
-    .sticky-wrapper {
-        position: sticky;
-        top: 0;
-        z-index: 1002;
-        background: var(--sec-gray);
-        padding-bottom: 10px;
-    }
-
-    .header {
-        background: #fff;
-        padding: 20px;
-        border-radius: 12px;
-        box-shadow: 0 6px 16px rgba(0,0,0,0.15);
-        margin-bottom: 20px;
-        border-left: 6px solid var(--sec-red);
-    }
-
-    .header.scrolled {
-        box-shadow: 0 10px 22px rgba(0,0,0,0.25);
-        transform: translateY(-2px);
-    }
-
-    .header h1 {
-        font-size: 1.6rem;
-        color: var(--sec-blue);
-        font-weight: 700;
-    }
-
-    /* ============================
-       BUSCADOR Y FILTROS
-       ============================ */
-    .search-container {
-        background: white;
-        padding: 25px;
-        border-radius: 12px;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        margin-bottom: 20px;
-        border-left: 5px solid var(--sec-light-blue);
-    }
-
-    #searchInput {
-        padding: 14px 20px;
-        border-radius: 10px;
-        border: 2px solid #ddd;
-        font-size: 1.1rem;
-        transition: 0.2s;
-        width: 100%;
-    }
-
-    #searchInput:focus {
-        border-color: var(--sec-light-blue);
-        box-shadow: 0 0 4px rgba(0,0,0,0.1);
-    }
-
-    .filter-buttons {
-        display: flex;
-        gap: 10px;
-        flex-wrap: wrap;
-    }
-
-    .filter-buttons select,
-    .clear-btn {
-        padding: 12px;
-        border-radius: 8px;
-        border: 2px solid #ddd;
-        background: #fff;
-        font-size: 1rem;
-        transition: 0.2s;
-    }
-
-    .clear-btn:hover {
-        background: var(--sec-light-blue);
-        color: white;
-        border-color: var(--sec-light-blue);
-    }
-
-    /* ============================
-       TARJETAS DE ESTADÍSTICAS
-       ============================ */
-    .stat-card {
-        text-align:center;
-        padding: 25px;
-        background:rgb(17, 11, 49);
-        border-radius:12px;
-        border-top:5px solid var(--sec-blue);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-        transition: 0.2s;
-    }
-
-    .stat-card:hover {
-        transform: translateY(-4px);
-        box-shadow: 0 6px 18px rgba(0,0,0,0.18);
-    }
-
-    .stat-card h3 {
-        color: var(--sec-dark);
-        font-size: 0.95rem;
-        text-transform: uppercase;
-        opacity: 0.7;
-    }
-
-    .stat-card .number {
-        font-size: 2.4rem;
-        font-weight: bold;
-        color: var(--sec-blue);
-    }
-
-    /* ============================
-       TARJETA DE COMPARACIÓN
-       ============================ */
-    .comparison-card {
-        background: #f9fbfd; /* Azul suave */
-        padding: 25px;
-        border-radius: 12px;
-        border-left: 6px solid var(--sec-light-blue);
-        box-shadow: 0 4px 14px rgba(0,0,0,0.08);
-        margin-bottom: 20px;
-        transition: 0.25s ease;
-    }
-
-    .comparison-card:hover {
-        background: #f4f2fb;
-        transform: translateX(4px);
-        box-shadow: 0 8px 18px rgba(0,0,0,0.18);
-    }
-
-    .service-header {
-        display:flex;
-        justify-content:space-between;
-        align-items:center;
-        padding-bottom:15px;
-        margin-bottom:20px;
-        border-bottom:2px solid #eee;
-    }
-
-    .service-name {
-        font-size:1.4rem;
-        font-weight:600;
-        color:var(--sec-dark);
-    }
-
-    /* ============================
-       ESTADOS
-       ============================ */
-    .status-badge {
-        padding:10px 22px;
-        border-radius:20px;
-        font-weight:bold;
-        font-size:0.85rem;
-        letter-spacing:0.5px;
-        text-transform:uppercase;
-    }
-
-    .status-subio {
-        background:#ffe3e3;
-        color:#d40000;
-        border:2px solid #d40000;
-    }
-
-    .status-bajo {
-        background:#e5ffe8;
-        color:#0c8e2a;
-        border:2px solid #0c8e2a;
-    }
-
-    .status-estable {
-        background:#fff3cd;
-        color:#a88700;
-        border:2px solid #a88700;
-    }
-
-    /* ============================
-       CONTENIDO DE MESES
-       ============================ */
-    .month-box {
-        background: #eef3f8;
-        padding: 20px;
-        border-radius: 10px;
-        border: 1px solid #d6dee8;
-        transition: 0.2s ease;
-    }
-
-    .month-box:hover {
-        background: #e3eaf2;
-        border-color: #c2cedc;
-    }
-
-    /* ============================
-       FACTURAS EN LISTA
-       ============================ */
-    .invoice-item {
-        background: #ffffff;
-        border-radius: 8px;
-        border-left: 5px solid var(--sec-blue);
-        padding: 12px;
-        margin-bottom: 10px;
-        cursor: pointer;
-        transition: 0.2s;
-        box-shadow: 0 2px 6px rgba(0,0,0,0.07);
-    }
-
-    .invoice-item:hover {
-        background: #f4f7fa;
-        transform: translateX(6px);
-        box-shadow: 0 4px 12px rgba(0,0,0,0.12);
-        border-left-color: var(--sec-red);
-    }
-
-    /* ============================
-       MODAL
-       ============================ */
-    .modal-content {
-        background: #f9fbfd;
-        border-left: 8px solid var(--sec-blue);
-        border-radius: 12px;
-        padding: 30px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.25);
-    }
-
-    .modal-title {
-        font-size:1.6rem;
-        font-weight:700;
-        color:var(--sec-blue);
-    }
-
-    .modal-services-title {
-        font-weight:600;
-        font-size:1.2rem;
-        color: var(--sec-dark);
-    }
-
-    .table thead {
-        background: var(--sec-blue);
-        color:white;
-    }
-</style>
 
 
     <!-- MODAL -->
@@ -289,7 +25,7 @@
 
             <div style="background:#f0f0f0; padding:10px; border-radius:6px; text-align:center;">
                 <div style="font-size:0.9rem; color:#555;">Total de la Factura</div>
-                <div id="modalTotalAmount" style="font-weight:700; font-size:1.4rem; color:#111;">0</div>
+                <div id="modalTotalAmount" style="font-weight:700; font-size:1.4rem; color:#111;">$0</div>
             </div>
         </div>
     </div>
@@ -302,7 +38,8 @@
                     <h2 class="m-0">Securitas Colombia - Dashboard de Facturas</h2>
                 </div>
                 <div class="mb-3">
-                    <input id="searchInput" class="form-control" placeholder="🔍 Buscar por servicio o número de factura...">
+                    <input id="searchInput" class="form-control"
+                        placeholder="🔍 Buscar por servicio o número de factura...">
                 </div>
                 <div class="d-flex gap-2 mb-3">
                     <select id="yearFilter" class="form-select">
@@ -338,10 +75,103 @@
         function parseNumberFromString(input) {
             if (input == null) return 0;
             if (typeof input === 'number') return input;
+            
             let s = String(input).trim();
+            
+            // Remover espacios en blanco
             s = s.replace(/\s+/g, '');
-            s = s.replace(/,/g, '.');
+            
+            // Remover símbolos de moneda
+            s = s.replace(/[$]/g, '');
+            
+            // Contar puntos y comas
+            const puntos = (s.match(/\./g) || []).length;
+            const comas = (s.match(/,/g) || []).length;
+            
+            // Si tiene múltiples puntos, son separadores de miles (formato: 1.234.567)
+            if (puntos > 1) {
+                s = s.replace(/\./g, ''); // Eliminar separadores de miles
+                s = s.replace(/,/g, '.'); // Convertir coma decimal a punto
+            }
+            // Si tiene múltiples comas, son separadores de miles (formato: 1,234,567.00)
+            else if (comas > 1) {
+                s = s.replace(/,/g, ''); // Eliminar separadores de miles
+                // El punto ya es decimal
+            }
+            // Si tiene punto Y coma
+            else if (puntos === 1 && comas === 1) {
+                const posPunto = s.indexOf('.');
+                const posComa = s.indexOf(',');
+                
+                // Si el punto viene antes que la coma: 1.234,56 (formato europeo)
+                if (posPunto < posComa) {
+                    s = s.replace(/\./g, ''); // Eliminar separador de miles
+                    s = s.replace(/,/g, '.'); // Convertir coma decimal a punto
+                }
+                // Si la coma viene antes que el punto: 1,234.56 (formato americano)
+                else {
+                    s = s.replace(/,/g, ''); // Eliminar separador de miles
+                    // El punto ya es decimal
+                }
+            }
+            // Si solo tiene UN punto
+            else if (puntos === 1 && comas === 0) {
+                const partes = s.split('.');
+                const parteDecimal = partes[1] || '';
+                
+                // Si hay exactamente 3 dígitos después del punto, puede ser miles o decimal
+                if (parteDecimal.length === 3) {
+                    // Verificar si termina en "00" o ".00" que indicaría formato americano
+                    // Ejemplo: 36.165 sin decimales = 36,165 (treinta y seis mil)
+                    // Si el número completo es pequeño (< 1000), probablemente es decimal
+                    const numeroCompleto = parseFloat(s);
+                    if (numeroCompleto < 1000 && partes[0].length <= 2) {
+                        // Es decimal: 36.165
+                        s = s; // Mantener como está
+                    } else {
+                        // Es separador de miles: 36.165 = 36165
+                        s = s.replace(/\./g, '');
+                    }
+                }
+                // Si hay 2 o menos dígitos después del punto, es decimal
+                else if (parteDecimal.length <= 2) {
+                    s = s; // Mantener el punto como decimal
+                }
+                // Si hay más de 3 dígitos, es separador de miles
+                else {
+                    s = s.replace(/\./g, '');
+                }
+            }
+            // Si solo tiene UNA coma
+            else if (comas === 1 && puntos === 0) {
+                const partes = s.split(',');
+                const parteDecimal = partes[1] || '';
+                
+                // Si hay exactamente 3 dígitos después de la coma, puede ser miles
+                if (parteDecimal.length === 3) {
+                    // Verificar contexto similar al punto
+                    const numeroCompleto = parseFloat(s.replace(',', '.'));
+                    if (numeroCompleto < 1000 && partes[0].length <= 2) {
+                        // Es decimal
+                        s = s.replace(/,/g, '.');
+                    } else {
+                        // Es separador de miles
+                        s = s.replace(/,/g, '');
+                    }
+                }
+                // Si hay 2 o menos dígitos, es decimal
+                else if (parteDecimal.length <= 2) {
+                    s = s.replace(/,/g, '.'); // Convertir coma decimal a punto
+                }
+                // Si hay más de 3 dígitos, es separador de miles
+                else {
+                    s = s.replace(/,/g, '');
+                }
+            }
+            
+            // Limpiar cualquier caracter no numérico excepto punto decimal
             s = s.replace(/[^0-9.]/g, '');
+            
             if (s === '') return 0;
             const n = Number(s);
             return isNaN(n) ? 0 : n;
@@ -355,14 +185,32 @@
             }).format(n);
         }
 
-        function formatCurrencyCO(valor) {
-            const n = parseNumberFromString(valor);
-            const partes = n.toFixed(2).split('.');
-            let entero = partes[0];
-            const decimales = partes[1];
-            entero = entero.replace(/\B(?=(\d{3})+(?!\d))/g, ' ');
-            return `${entero},${decimales}`;
-        }
+       function formatCurrencyCO(valor) {
+    // Si el valor ya es un número, usarlo directamente
+    let n;
+    if (typeof valor === 'number') {
+        n = valor;
+    } else {
+        n = parseNumberFromString(valor);
+    }
+    
+    // Verificar si tiene decimales significativos
+    const hasDecimals = (n % 1) !== 0;
+    
+    const partes = hasDecimals ? n.toFixed(2).split('.') : Math.round(n).toString().split('.');
+    let entero = partes[0];
+    const decimales = partes[1];
+    
+    // Separador de miles con punto
+    entero = entero.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    
+    // Solo mostrar decimales si existen y son significativos
+    if (hasDecimals && decimales && decimales !== '00') {
+        return `${entero},${decimales}`;
+    }
+    
+    return entero;
+}
 
         function formatDate(dateString) {
             if (!dateString) return 'Fecha no disponible';
@@ -391,65 +239,171 @@
     if (!desc) return [];
 
     let text = String(desc);
+    console.log('Parser - Texto original:', text.substring(0, 300));
 
     // ---------------------------------------------------------
-    // 1) NORMALIZAR NÚMEROS ROTOS
-    // Une números separados por espacios que vienen del PDF:
-    // Ej: "7 942 60 8,00" -> "7942608,00"
+    // ESTRATEGIA NUEVA: Buscar patrones específicos
     // ---------------------------------------------------------
-    text = text.replace(/(\d)\s+(?=\d)/g, '$1'); 
+    
+    const servicios = [];
+    
+    // Patrón 0: Detectar formato simple "LatAm GDC" o facturas de Securitas US
+    // Formato: "DESCRIPTION\nLatAm GDC CC20415 May costs\nUSD\n36,165.00\nBeatriz..."
+    const latamMatch = text.match(/LatAm\s+GDC\s+[^\n]+/i);
+    if (latamMatch) {
+        const servicioNombre = latamMatch[0].trim();
+        
+        // Buscar el monto que viene después (formato: "36,165.00" o "36.165,00")
+        const afterLatam = text.substring(latamMatch.index + latamMatch[0].length);
+        const montoMatch = afterLatam.match(/USD\s*([\d,\.]+)/i);
+        
+        let monto = 0;
+        if (montoMatch) {
+            // Puede venir como "36,165.00" (formato US) o "36.165,00" (formato EU)
+            const montoStr = montoMatch[1];
+            // Detectar formato: si tiene coma antes del punto, es formato US
+            if (montoStr.includes(',') && montoStr.includes('.')) {
+                const posComma = montoStr.indexOf(',');
+                const posDot = montoStr.indexOf('.');
+                if (posComma < posDot) {
+                    // Formato US: 36,165.00
+                    monto = parseFloat(montoStr.replace(/,/g, ''));
+                } else {
+                    // Formato EU: 36.165,00
+                    monto = parseFloat(montoStr.replace(/\./g, '').replace(',', '.'));
+                }
+            } else if (montoStr.includes(',')) {
+                // Solo coma: formato EU decimal
+                monto = parseFloat(montoStr.replace(/\./g, '').replace(',', '.'));
+            } else if (montoStr.includes('.')) {
+                // Solo punto: podría ser miles o decimal
+                const partes = montoStr.split('.');
+                if (partes[1] && partes[1].length === 2) {
+                    // Es decimal: 36.16
+                    monto = parseFloat(montoStr);
+                } else if (partes[1] && partes[1].length === 3) {
+                    // Es miles: 36.165
+                    monto = parseFloat(montoStr.replace(/\./g, ''));
+                } else {
+                    monto = parseFloat(montoStr);
+                }
+            } else {
+                monto = parseFloat(montoStr);
+            }
+        }
+        
+        console.log('Parser - LatAm GDC detectado:', { servicioNombre, monto });
+        
+        servicios.push({
+            nombre: servicioNombre,
+            cantidad: 1,
+            unitario: monto,
+            total: monto
+        });
+        
+        return servicios; // Retornar inmediatamente para este tipo de factura
+    }
+    
+    // Patrón 1: Detectar "Global IT Services - Office 365" seguido de números
+    // El texto viene como: "Office 3651,0052 661 222,2252 661 222,22"
+    const officeMatch = text.match(/Global IT Services\s*-\s*Office\s*365([^\n]*)/i);
+    if (officeMatch) {
+        // Extraer todo lo que sigue después de "Office 365"
+        const afterOffice = officeMatch[1] + text.substring(officeMatch.index + officeMatch[0].length, officeMatch.index + officeMatch[0].length + 300);
+        console.log('Parser - Después de Office 365:', afterOffice);
+        
+        // Patrón específico: "3651,0052 661 222,2252 661 222,22"
+        // Significa: cantidad=1,00  precio=52.661.222,22  total=52.661.222,22
+        // El "365" es parte del nombre, los números reales empiezan después
+        
+        // Buscar: (cantidad con decimales)(monto grande con espacios)(monto grande con espacios)
+        // Ejemplo: "1,00 52 661 222,22 52 661 222,22"
+        const numMatch = afterOffice.match(/(\d),(\d{2})(\d+[\s\d]+,\d{2})(\d+[\s\d]+,\d{2})/);
+        
+        if (numMatch) {
+            const cantidad = parseFloat(numMatch[1] + '.' + numMatch[2]) || 1;
+            
+            // Extraer precio unitario: "52 661 222,22"
+            const unitarioStr = numMatch[3].trim();
+            const unitario = parseFloat(unitarioStr.replace(/\s/g, '').replace(',', '.')) || 0;
+            
+            // Extraer total: "52 661 222,22"
+            const totalStr = numMatch[4].trim();
+            const total = parseFloat(totalStr.replace(/\s/g, '').replace(',', '.')) || 0;
+            
+            console.log('Parser - Office 365 extraído:', { cantidad, unitario, total });
+            
+            servicios.push({
+                nombre: 'Global IT Services - Office 365',
+                cantidad: cantidad,
+                unitario: unitario,
+                total: total
+            });
+        }
+    }
+    
+    // Patrón 2: Detectar "Mark-up"
+    const markupMatch = text.match(/Mark-up\s+For\s+actual\s+consumption[^0-9]*(\d),(\d{2})(\d+[\s\d]+,\d{2})(\d+[\s\d]+,\d{2})/i);
+    if (markupMatch) {
+        console.log('Parser - Mark-up match encontrado:', markupMatch);
+        
+        const cantidad = parseFloat(markupMatch[1] + '.' + markupMatch[2]) || 1;
+        
+        // Extraer precio unitario
+        const unitarioStr = markupMatch[3].trim();
+        const unitario = parseFloat(unitarioStr.replace(/\s/g, '').replace(',', '.')) || 0;
+        
+        // Extraer total
+        const totalStr = markupMatch[4].trim();
+        const total = parseFloat(totalStr.replace(/\s/g, '').replace(',', '.')) || 0;
+        
+        console.log('Parser - Mark-up extraído:', { cantidad, unitario, total });
+        
+        servicios.push({
+            nombre: 'Mark-up For actual consumption of licenses per month and price per license, see attached appendix',
+            cantidad: cantidad,
+            unitario: unitario,
+            total: total
+        });
+    }
+    
+    console.log('Parser - Servicios detectados:', servicios);
+    
+    // Si no detectó servicios con los patrones específicos, intentar método original
+    if (servicios.length > 0) {
+        return servicios;
+    }
 
-    // Une miles con decimales separados por puntos o espacios
-    text = text.replace(/(\d)\.(?=\d{3}\b)/g, '$1');
-    text = text.replace(/(\d)\s(?=\d{3}\b)/g, '$1');
+    // ---------------------------------------------------------
+    // MÉTODO ORIGINAL (fallback)
+    // ---------------------------------------------------------
+    
+    // Normalizar texto
+    text = text.replace(/Office\s*365(\d)/g, 'Office 365\n$1');
+    text = text.replace(/(\d,\d{2})(\d{2,})/g, '$1\n$2');
+    text = text.replace(/(\d{3}\s\d{3}\s\d{3},\d{2})(\d)/g, '$1\n$2');
+    text = text.replace(/(\d{3}\s\d{3},\d{2})(\d)/g, '$1\n$2');
+    text = text.replace(/(\d{3},\d{2})(\d{2,})/g, '$1\n$2');
+    text = text.replace(/([A-Za-z\)])(\d{1,3}\s+\d{3})/g, '$1\n$2');
+    text = text.replace(/(\d{3}\s\d{3}\s\d{3},\d{2})\s*(\d{1,2}\s)/g, '$1\n$2');
 
-    // ---------------------------------------------------------
-    // 2) Separadores inteligentes para intentar formar filas
-    // ---------------------------------------------------------
-    text = text.replace(/([A-Za-z\)\%])(\d)/g, '$1\n$2');
-    text = text.replace(/(\d)([A-Za-z])/g, '$1\n$2');
-
-    // Saltos alrededor de montos muy grandes
-    text = text.replace(/(\d{1,9},\d{2})/g, '\n$1\n');
-
-    // ---------------------------------------------------------
-    // 3) Líneas limpias
-    // ---------------------------------------------------------
     const rawLines = text
         .split(/\n+/)
         .map(l => l.trim())
         .filter(l => l.length > 0);
 
-    const servicios = [];
-
-    // ---------------------------------------------------------
-    // 4) REGEX NUEVO — ACEPTA NÚMEROS GRANDES Y BIEN UNIDOS
-    // ---------------------------------------------------------
-    const filaRegex =
-        /^(.+?)\s+(\d[\d\.,]*)\s+(\d[\d\.,]*)\s+(\d[\d\.,]*)$/;
+    const filaRegex = /^(.+?)\s+([\d\s]+,\d{2})\s+([\d\s]+,\d{2})\s+([\d\s]+,\d{2})$/;
 
     function normalizeNumber(v) {
         if (!v) return 0;
-
-        // eliminar espacios
         v = v.replace(/\s+/g, '');
-
-        // miles a puntos
         v = v.replace(/\.(?=\d{3}\b)/g, '');
-
-        // convertir coma decimal a punto
         v = v.replace(/,/g, '.');
-
         return parseFloat(v) || 0;
     }
 
-    // ---------------------------------------------------------
-    // 5) INTELIGENCIA PARA UNIR LÍNEAS 
-    // (hasta 4 líneas si el PDF vino muy roto)
-    // ---------------------------------------------------------
     for (let i = 0; i < rawLines.length; i++) {
         let line = rawLines[i];
-
         let matches = null;
         matches = line.match(filaRegex);
 
@@ -463,25 +417,12 @@
             continue;
         }
 
-        // Unir +1
-        if (i + 1 < rawLines.length) {
-            let merged = line + " " + rawLines[i + 1];
-            matches = merged.match(filaRegex);
-            if (matches) {
-                servicios.push({
-                    nombre: matches[1].trim(),
-                    cantidad: normalizeNumber(matches[2]),
-                    unitario: normalizeNumber(matches[3]),
-                    total: normalizeNumber(matches[4])
-                });
-                i++;
-                continue;
+        // Intentar unir hasta 5 líneas
+        for (let j = 1; j <= 5 && i + j < rawLines.length; j++) {
+            let merged = line;
+            for (let k = 1; k <= j; k++) {
+                merged += " " + rawLines[i + k];
             }
-        }
-
-        // Unir +2
-        if (i + 2 < rawLines.length) {
-            let merged = line + " " + rawLines[i + 1] + " " + rawLines[i + 2];
             matches = merged.match(filaRegex);
             if (matches) {
                 servicios.push({
@@ -490,26 +431,8 @@
                     unitario: normalizeNumber(matches[3]),
                     total: normalizeNumber(matches[4])
                 });
-                i += 2;
-                continue;
-            }
-        }
-
-        // Unir +3 líneas (caso extremo PDF)
-        if (i + 3 < rawLines.length) {
-            let merged =
-                line + " " + rawLines[i + 1] + " " + rawLines[i + 2] + " " + rawLines[i + 3];
-
-            matches = merged.match(filaRegex);
-            if (matches) {
-                servicios.push({
-                    nombre: matches[1].trim(),
-                    cantidad: normalizeNumber(matches[2]),
-                    unitario: normalizeNumber(matches[3]),
-                    total: normalizeNumber(matches[4])
-                });
-                i += 3;
-                continue;
+                i += j;
+                break;
             }
         }
     }
@@ -532,17 +455,34 @@
             const html = datos.map(comp => {
                 // Mes anterior
                 const facturasAnterior = (comp.facturasAnterior || []).map(f => {
+                    // Parsear el monto correctamente antes de codificarlo
+                    let montoParsed;
+                    if (typeof f.monto === 'string') {
+                        montoParsed = parseNumberFromString(f.monto);
+                    } else if (typeof f.monto === 'number') {
+                        // Corregir números mal parseados (36.165 → 36165)
+                        const strNum = f.monto.toString();
+                        const partes = strNum.split('.');
+                        if (partes.length === 2 && partes[1].length === 3 && f.monto < 1000) {
+                            montoParsed = parseFloat(strNum.replace('.', ''));
+                        } else {
+                            montoParsed = f.monto;
+                        }
+                    } else {
+                        montoParsed = 0;
+                    }
+                    
                     return `
                         <div class="invoice-item" data-factura='${encodeFactura({
                             numero: f.numero,
                             fecha: f.fecha,
-                            monto: f.monto,
+                            monto: montoParsed,
                             descripcion: f.descripcion || null,
                             Cliente: f.Cliente || null
                         })}' style="border:1px solid #e9ecef; padding:8px; border-radius:6px; margin-bottom:6px; cursor:pointer;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-weight:600;">#${escapeHtml(f.numero)}</div>
-                                <div style="font-weight:700;">$${formatCurrency(f.monto)}</div>
+                                <div style="font-weight:700;">${formatCurrency(montoParsed)}</div>
                             </div>
                             <div style="color:#6c757d; font-size:0.9rem;">${formatDate(f.fecha)}</div>
                         </div>
@@ -551,17 +491,34 @@
 
                 // Mes actual
                 const facturasActual = (comp.facturasActual || []).map(f => {
+                    // Parsear el monto correctamente antes de codificarlo
+                    let montoParsed;
+                    if (typeof f.monto === 'string') {
+                        montoParsed = parseNumberFromString(f.monto);
+                    } else if (typeof f.monto === 'number') {
+                        // Corregir números mal parseados (36.165 → 36165)
+                        const strNum = f.monto.toString();
+                        const partes = strNum.split('.');
+                        if (partes.length === 2 && partes[1].length === 3 && f.monto < 1000) {
+                            montoParsed = parseFloat(strNum.replace('.', ''));
+                        } else {
+                            montoParsed = f.monto;
+                        }
+                    } else {
+                        montoParsed = 0;
+                    }
+                    
                     return `
                         <div class="invoice-item" data-factura='${encodeFactura({
                             numero: f.numero,
                             fecha: f.fecha,
-                            monto: f.monto,
+                            monto: montoParsed,
                             descripcion: f.descripcion || null,
                             Cliente: f.Cliente || null
                         })}' style="border:1px solid #e9ecef; padding:8px; border-radius:6px; margin-bottom:6px; cursor:pointer;">
                             <div style="display:flex; justify-content:space-between; align-items:center;">
                                 <div style="font-weight:600;">#${escapeHtml(f.numero)}</div>
-                                <div style="font-weight:700;">$${formatCurrency(f.monto)}</div>
+                                <div style="font-weight:700;">${formatCurrency(montoParsed)}</div>
                             </div>
                             <div style="color:#6c757d; font-size:0.9rem;">${formatDate(f.fecha)}</div>
                         </div>
@@ -614,8 +571,31 @@
             const numero = factura.numero || factura.NumeroFactura || 'No disponible';
             const fecha = factura.fecha || factura.FechaEmision || null;
             const montoRaw = (typeof factura.monto !== 'undefined') ? factura.monto : (factura.MontoTotal || 0);
-            const monto = parseNumberFromString(montoRaw) || 0;
+            
+            // CRÍTICO: Siempre parsear el monto, incluso si ya es número
+            // Porque 36.165 como número JS = 36 con decimales, cuando debería ser 36165
+            let monto;
+            if (typeof montoRaw === 'string') {
+                monto = parseNumberFromString(montoRaw);
+            } else if (typeof montoRaw === 'number') {
+                // Si es un número pequeño con 3 decimales, probablemente fue mal parseado
+                const strNum = montoRaw.toString();
+                const partes = strNum.split('.');
+                if (partes.length === 2 && partes[1].length === 3 && montoRaw < 1000) {
+                    // Ejemplo: 36.165 → convertir a 36165
+                    monto = parseFloat(strNum.replace('.', ''));
+                } else {
+                    monto = montoRaw;
+                }
+            } else {
+                monto = 0;
+            }
+            
             const desc = factura.descripcion || factura.Descripcion || factura.Cliente || '';
+            
+            console.log('Modal - Monto raw:', montoRaw, 'tipo:', typeof montoRaw, 'Monto final:', monto);
+            console.log('Modal - Descripción recibida:', desc);
+            console.log('Modal - Primeros 200 caracteres:', desc.substring(0, 200));
 
             document.getElementById('modalTitle').textContent = `Factura #${numero}`;
 
@@ -623,7 +603,7 @@
                 <div style="display:flex; gap:12px; flex-wrap:wrap;">
                     <div style="min-width:140px;"><strong>Número:</strong><div>${escapeHtml(numero)}</div></div>
                     <div style="min-width:180px;"><strong>Fecha:</strong><div>${formatDate(fecha)}</div></div>
-                    <div style="min-width:140px;"><strong>Monto:</strong><div>${formatCurrencyCO(monto)}</div></div>
+                    <div style="min-width:140px;"><strong>Monto:</strong><div>$${formatCurrencyCO(monto)}</div></div>
                 </div>
             `;
 
@@ -631,8 +611,18 @@
 
             // Parse services safely (no deletion)
             const servicios = parseServicios(desc);
+            
+            console.log('Modal - Servicios parseados:', servicios.length, servicios);
 
             if (servicios.length > 0) {
+                // Si el servicio tiene monto 0, usar el monto de la factura
+                servicios.forEach(s => {
+                    if (s.unitario === 0 || s.total === 0) {
+                        s.unitario = monto;
+                        s.total = monto;
+                    }
+                });
+                
                 // Render table
                 let rows = servicios.map(s => {
                     return `<tr>
@@ -674,7 +664,7 @@
                 `;
             }
 
-            document.getElementById('modalTotalAmount').textContent = formatCurrencyCO(monto);
+            document.getElementById('modalTotalAmount').textContent = '$' + formatCurrencyCO(monto);
 
             // show modal
             modal.style.display = 'block';

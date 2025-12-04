@@ -256,6 +256,129 @@ app.get('/dashboard/json', async (req, res) => {
   }
 });
 
+// app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
+//   try {
+//     if (!req.file) throw new Error('No se subió ningún archivo');
+//     console.log('Archivo recibido:', req.file.originalname);
+
+//     const dataBuffer = fs.readFileSync(req.file.path);
+//     const data = await pdfParse(dataBuffer);
+//     const texto = data.text;
+
+//     console.log('===== CONTENIDO PDF COMPLETO =====');
+//     console.log(texto);
+//     console.log('===== FIN CONTENIDO PDF COMPLETO =====');
+
+//     let tipoPDF = 'DESCONOCIDO';
+//     let cliente = 'No encontrado', numeroFactura = 'No encontrado',
+//         fechaEmision = null, fechaVencimiento = null, montoTotal = '0.00';
+
+//     if (texto.includes('INVOICE') && texto.includes('INVOICE NUMBER')) {
+//       tipoPDF = 'INVOICE_INGLES';
+//       numeroFactura = texto.match(/INVOICE NUMBER\s*([^\s]+)/i)?.[1] || 'No encontrado';
+//       let fechaMatch = texto.match(/INVOICE DATE\s*([^\n]+)/i);
+//       fechaEmision = fechaMatch ? fechaMatch[1].replace(/[^0-9\/\-]/g, '').trim() : null;
+//       let clienteMatch = texto.match(/ATTN[:\s]*([^\n]+)/i);
+//       cliente = clienteMatch ? clienteMatch[1].replace(/INVOICE NUMBER.*$/, '').trim() : 'No encontrado';
+//       let montoMatch = texto.match(/TOTALUSD[\s$]+([\d.,]+)/i) ||
+//         texto.match(/TOTAL[\s$]+([\d.,]+)/i) ||
+//         texto.match(/AMOUNT[\s$]+([\d.,]+)/i);
+//       montoTotal = montoMatch ? limpiarNumero(montoMatch[1]) : '0.00';
+//       fechaVencimiento = null;
+
+//       console.log(`[INVOICE] Extraido: num:${numeroFactura} cliente:${cliente} fecha:${fechaEmision} monto:${montoTotal}`);
+//     } else if (texto.includes('Global AVL') || texto.includes('Hiber Data Stream')) {
+//       tipoPDF = 'FORMATO_GLOBAL_AVL';
+
+//       const facturaMatch = texto.match(/Factura\s+([A-Za-z0-9\-]+)/i);
+//       numeroFactura = facturaMatch ? facturaMatch[1] : 'No encontrado';
+
+//       const fechaMatch = texto.match(/Fecha:\s*(\d{4})\/(\d{2})\/(\d{2})/);
+//       fechaEmision = fechaMatch ? `${fechaMatch[1]}-${fechaMatch[2]}-${fechaMatch[3]}` : null;
+
+//       const clienteMatch = texto.match(/Cliente:\s*([\s\S]*?)(?=RUT:)/i);
+//       cliente = clienteMatch ? clienteMatch[1].replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim() : "No encontrado";
+
+//       let descripcionServicios = '';
+//       const lineas = texto.split('\n');
+//       for (let linea of lineas) {
+//         linea = linea.trim();
+//         const servicioMatch = linea.match(/^(\d+)\s*Servicio de localizacion[^\d]*([\d,\.]+)[^\$]*\$(\d[\d,\.]*)\s*\$/i);
+//         if (servicioMatch) {
+//           const cantidad = servicioMatch[2].replace(/,/g, '').replace(/\./g,'');
+//           const desc = `Servicio localizacion (${cantidad} disp.)`;
+//           descripcionServicios += `${desc}; `;
+//         }
+//       }
+//       if (descripcionServicios) {
+//         cliente += " - " + descripcionServicios.trim();
+//       }
+
+//       let totalMatch = texto.match(/Total\s*([\d.,]+)\s*\$/i);
+//       montoTotal = totalMatch ? limpiarNumero(totalMatch[1]) : '0.00';
+//       fechaVencimiento = null;
+
+//       console.log(`[GLOBAL AVL] Extraido: num:${numeroFactura} cliente:${cliente} fecha:${fechaEmision} monto:${montoTotal}`);
+//     } else if (texto.includes('DescriptionQuantityUnit priceAmount')) {
+//       tipoPDF = 'FORMATO_CLASICO';
+//       numeroFactura = texto.match(/Number(\d+)/)?.[1] || 'No encontrado';
+//       const fechaEmisionRaw = texto.match(/Date(\d{4}\/\d{2}\/\d{2})/)?.[1] || null;
+//       fechaEmision = fechaEmisionRaw;
+//       const marker = 'DescriptionQuantityUnit priceAmount';
+//       const inicioDetalles = texto.indexOf(marker);
+//       const finTablaRegex = /(?:Amount|Valor total)/i;
+//       let clienteBloque = '';
+//       if (inicioDetalles !== -1) {
+//         const resto = texto.substring(inicioDetalles + marker.length);
+//         const lineas = resto.split('\n');
+//         for (let linea of lineas) {
+//           if (finTablaRegex.test(linea)) break;
+//           clienteBloque += linea.trim() + ' ';
+//         }
+//         cliente = clienteBloque.replace(/\s{2,}/g, ' ').trim();
+//       } else {
+//         cliente = texto.split(marker)[1] ? texto.split(marker)[1].split('\n')[0].trim() : "No encontrado";
+//       }
+
+//       let lineaCOP = texto.split('\n').find(l => l.includes('COP'));
+//       if (lineaCOP) {
+//         const montos = Array.from(lineaCOP.matchAll(/(\d[\d\s.]*\d,\d{2})/g)).map(m =>
+//           limpiarNumero(m[1])
+//         );
+//         if (montos.length) montoTotal = Math.max(...montos).toFixed(2);
+//       }
+//     }
+
+//     if (tipoPDF === 'DESCONOCIDO') {
+//       cliente = texto.slice(0, 120).replace(/\n/g, ' ');
+//       numeroFactura = 'No encontrado';
+//       fechaEmision = null;
+//       montoTotal = '0.00';
+//     }
+
+//     const poolInstance = await getPool();
+//     const montoFinal = limpiarNumero(montoTotal);
+
+//     console.log(`Guardando en BD - Cliente: "${cliente}"`);
+//     console.log(`Guardando en BD - MontoTotal: ${montoFinal} (tipo: ${typeof montoFinal})`);
+
+//     await poolInstance.request()
+//       .input('NumeroFactura', sql.VarChar, numeroFactura)
+//       .input('FechaEmision', sql.Date, fechaEmision)
+//       .input('FechaVencimiento', sql.Date, fechaVencimiento)
+//       .input('Cliente', sql.VarChar, cliente)
+//       .input('MontoTotal', sql.Decimal(18,4), montoFinal)
+//       .query(`
+//         INSERT INTO Facturas (NumeroFactura, FechaEmision, FechaVencimiento, Cliente, MontoTotal)
+//         VALUES (@NumeroFactura, @FechaEmision, @FechaVencimiento, @Cliente, @MontoTotal)
+//       `);
+
+//     res.redirect('/extraerfacturapdf');
+//   } catch (error) {
+//     console.error('Error al procesar la factura:', error);
+//     res.status(500).send('Error al procesar la factura: ' + error.message + '<br>' + error.stack);
+//   }
+// });
 app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
   try {
     if (!req.file) throw new Error('No se subió ningún archivo');
@@ -280,6 +403,27 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       fechaEmision = fechaMatch ? fechaMatch[1].replace(/[^0-9\/\-]/g, '').trim() : null;
       let clienteMatch = texto.match(/ATTN[:\s]*([^\n]+)/i);
       cliente = clienteMatch ? clienteMatch[1].replace(/INVOICE NUMBER.*$/, '').trim() : 'No encontrado';
+      
+      // Extraer todo el bloque desde la dirección hasta TOTAL
+      const bloqueMatch = texto.match(/Westlake Village.*?\n([\s\S]*?)TOTAL\s*USD/i);
+      if (bloqueMatch) {
+        let descripcionCompleta = bloqueMatch[1]
+          .replace(/ATTN:.*?(?=Securitas Intelligent|INVOICE)/gi, '') // Remover ATTN ya capturado
+          .replace(/INVOICE NUMBER.*?\n/gi, '')
+          .replace(/INVOICE DATE.*?\n/gi, '')
+          .replace(/DATE\s*AMOUNT/gi, '')
+          .replace(/\n\s*\n/g, '\n') // Eliminar líneas vacías múltiples
+          .trim()
+          .split('\n')
+          .map(line => line.trim())
+          .filter(line => line.length > 0)
+          .join(' ');
+        
+        if (descripcionCompleta) {
+          cliente += ' - ' + descripcionCompleta;
+        }
+      }
+      
       let montoMatch = texto.match(/TOTALUSD[\s$]+([\d.,]+)/i) ||
         texto.match(/TOTAL[\s$]+([\d.,]+)/i) ||
         texto.match(/AMOUNT[\s$]+([\d.,]+)/i);
@@ -299,19 +443,30 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
       const clienteMatch = texto.match(/Cliente:\s*([\s\S]*?)(?=RUT:)/i);
       cliente = clienteMatch ? clienteMatch[1].replace(/\n+/g, ' ').replace(/\s{2,}/g, ' ').trim() : "No encontrado";
 
+      // Extraer descripción completa de servicios
       let descripcionServicios = '';
       const lineas = texto.split('\n');
+      let totalDispositivos = 0;
+      
       for (let linea of lineas) {
         linea = linea.trim();
-        const servicioMatch = linea.match(/^(\d+)\s*Servicio de localizacion[^\d]*([\d,\.]+)[^\$]*\$(\d[\d,\.]*)\s*\$/i);
+        // Buscar líneas que contienen "Servicio de localizacion"
+        const servicioMatch = linea.match(/Servicio de localizacion\s+(.+?)\s+(\d+(?:[.,]\d+)?)\s+(\d+(?:[.,]\d+)?)\s*\$\s*(\d+(?:[.,]\d+)?)\s*\$/i);
         if (servicioMatch) {
-          const cantidad = servicioMatch[2].replace(/,/g, '').replace(/\./g,'');
-          const desc = `Servicio localizacion (${cantidad} disp.)`;
-          descripcionServicios += `${desc}; `;
+          const rangoDispositivos = servicioMatch[1].trim();
+          const cantidad = parseInt(servicioMatch[2].replace(/[.,]/g, ''));
+          const precio = servicioMatch[3];
+          const total = servicioMatch[4];
+          
+          if (cantidad > 0) {
+            totalDispositivos += cantidad;
+            descripcionServicios += `${cantidad} dispositivos (${rangoDispositivos}) a $${precio} = $${total}; `;
+          }
         }
       }
+      
       if (descripcionServicios) {
-        cliente += " - " + descripcionServicios.trim();
+        cliente += ` - Total: ${totalDispositivos} dispositivos - Detalle: ${descripcionServicios.trim()}`;
       }
 
       let totalMatch = texto.match(/Total\s*([\d.,]+)\s*\$/i);
@@ -379,7 +534,6 @@ app.post('/extraerfacturapdf', upload.single('factura'), async (req, res) => {
     res.status(500).send('Error al procesar la factura: ' + error.message + '<br>' + error.stack);
   }
 });
-
 app.get('/debug-facturas', async (req, res) => {
   // Igual que antes (si decides implementarlo)
 });
